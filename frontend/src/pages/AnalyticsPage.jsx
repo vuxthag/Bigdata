@@ -1,0 +1,144 @@
+import React from 'react'
+import { useQuery } from '@tanstack/react-query'
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, LineChart, Line, PieChart, Pie, Legend } from 'recharts'
+import { TrendingUp, Cpu, FileText, Briefcase, Search, Star } from 'lucide-react'
+import { analyticsApi } from '../api/analytics'
+
+const COLORS = ['#6366f1', '#8b5cf6', '#a78bfa', '#818cf8', '#c4b5fd', '#ddd6fe', '#e0e7ff']
+const PIE_COLORS = { applied: '#10b981', saved: '#6366f1', skipped: '#ef4444', viewed: '#94a3b8' }
+
+function StatCard({ icon: Icon, label, value, sub }) {
+  return (
+    <div className="glass-card p-5">
+      <div className="flex items-center gap-2 mb-3">
+        <Icon className="w-4 h-4 text-brand-400" />
+        <span className="text-slate-400 text-sm">{label}</span>
+      </div>
+      <p className="text-3xl font-bold text-white">{value}</p>
+      {sub && <p className="text-slate-500 text-xs mt-1">{sub}</p>}
+    </div>
+  )
+}
+
+function ChartCard({ title, icon: Icon, children }) {
+  return (
+    <div className="glass-card p-6">
+      <h3 className="text-white font-semibold mb-4 flex items-center gap-2">
+        <Icon className="w-4 h-4 text-brand-400" />
+        {title}
+      </h3>
+      {children}
+    </div>
+  )
+}
+
+export default function AnalyticsPage() {
+  const { data: stats } = useQuery({ queryKey: ['analytics-stats'], queryFn: () => analyticsApi.stats().then(r => r.data) })
+  const { data: dist } = useQuery({ queryKey: ['similarity-dist'], queryFn: () => analyticsApi.similarityDistribution().then(r => r.data) })
+  const { data: activity } = useQuery({ queryKey: ['activity'], queryFn: () => analyticsApi.activity().then(r => r.data) })
+
+  // Pie chart data: sum up all activity actions
+  const pieData = React.useMemo(() => {
+    if (!activity?.length) return []
+    const totals = { applied: 0, saved: 0, skipped: 0 }
+    activity.forEach(d => {
+      totals.applied += d.applied || 0
+      totals.saved += d.saved || 0
+      totals.skipped += d.skipped || 0
+    })
+    return Object.entries(totals).filter(([,v]) => v > 0).map(([k, v]) => ({
+      name: k === 'applied' ? 'Ứng tuyển' : k === 'saved' ? 'Đã lưu' : 'Bỏ qua',
+      value: v, key: k,
+    }))
+  }, [activity])
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h2 className="text-2xl font-bold text-white">Analytics</h2>
+        <p className="text-slate-400 text-sm mt-1">Phân tích hoạt động và hiệu suất tìm kiếm việc làm</p>
+      </div>
+
+      {/* Stats row */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <StatCard icon={FileText} label="CVs đã upload" value={stats?.total_cvs ?? 0} />
+        <StatCard icon={Briefcase} label="Tổng việc làm" value={stats?.total_jobs?.toLocaleString() ?? 0} />
+        <StatCard icon={Search} label="Gợi ý đã xem" value={stats?.total_recommendations ?? 0} />
+        <StatCard icon={Cpu} label="Model version" value="SBERT" sub={stats?.model_version?.slice(0,15) || 'base'} />
+      </div>
+
+      {/* Charts row 1 */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <ChartCard title="Phân phối điểm tương đồng" icon={TrendingUp}>
+          <ResponsiveContainer width="100%" height={220}>
+            <BarChart data={dist || []} margin={{ left: -10 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#ffffff08" />
+              <XAxis dataKey="range" tick={{ fill: '#64748b', fontSize: 10 }} />
+              <YAxis tick={{ fill: '#64748b', fontSize: 11 }} />
+              <Tooltip contentStyle={{ background: '#1e1e36', border: '1px solid #ffffff15', borderRadius: 12 }} labelStyle={{ color: '#e2e8f0' }} />
+              <Bar dataKey="count" radius={[4, 4, 0, 0]}>
+                {(dist || []).map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
+        </ChartCard>
+
+        <ChartCard title="Top việc làm được match" icon={Star}>
+          {stats?.top_matched_jobs?.length > 0 ? (
+            <ResponsiveContainer width="100%" height={220}>
+              <BarChart data={stats.top_matched_jobs} layout="vertical" margin={{ left: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#ffffff08" />
+                <XAxis type="number" tick={{ fill: '#64748b', fontSize: 11 }} />
+                <YAxis dataKey="title" type="category" width={130} tick={{ fill: '#64748b', fontSize: 10 }} />
+                <Tooltip contentStyle={{ background: '#1e1e36', border: '1px solid #ffffff15', borderRadius: 12 }} labelStyle={{ color: '#e2e8f0' }} />
+                <Bar dataKey="match_count" radius={[0, 6, 6, 0]}>
+                  {stats.top_matched_jobs.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          ) : (
+            <div className="flex items-center justify-center h-48 text-slate-500 text-sm">Chưa có dữ liệu match</div>
+          )}
+        </ChartCard>
+      </div>
+
+      {/* Charts row 2 */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <ChartCard title="Hoạt động 7 ngày gần nhất" icon={TrendingUp}>
+          {activity?.length > 0 ? (
+            <ResponsiveContainer width="100%" height={220}>
+              <LineChart data={activity} margin={{ left: -10 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#ffffff08" />
+                <XAxis dataKey="date" tick={{ fill: '#64748b', fontSize: 10 }} />
+                <YAxis tick={{ fill: '#64748b', fontSize: 11 }} />
+                <Tooltip contentStyle={{ background: '#1e1e36', border: '1px solid #ffffff15', borderRadius: 12 }} />
+                <Legend wrapperStyle={{ color: '#94a3b8', fontSize: 12 }} />
+                <Line type="monotone" dataKey="applied" stroke="#10b981" strokeWidth={2} dot={{ r: 3 }} name="Ứng tuyển" />
+                <Line type="monotone" dataKey="saved" stroke="#6366f1" strokeWidth={2} dot={{ r: 3 }} name="Đã lưu" />
+                <Line type="monotone" dataKey="skipped" stroke="#ef4444" strokeWidth={2} dot={{ r: 3 }} name="Bỏ qua" />
+              </LineChart>
+            </ResponsiveContainer>
+          ) : (
+            <div className="flex items-center justify-center h-48 text-slate-500 text-sm">Chưa có hoạt động nào</div>
+          )}
+        </ChartCard>
+
+        <ChartCard title="Tỉ lệ tương tác" icon={Star}>
+          {pieData.length > 0 ? (
+            <ResponsiveContainer width="100%" height={220}>
+              <PieChart>
+                <Pie data={pieData} cx="50%" cy="50%" innerRadius={55} outerRadius={90} dataKey="value" paddingAngle={3}>
+                  {pieData.map((entry, i) => <Cell key={i} fill={PIE_COLORS[entry.key] || COLORS[i]} />)}
+                </Pie>
+                <Tooltip contentStyle={{ background: '#1e1e36', border: '1px solid #ffffff15', borderRadius: 12 }} />
+                <Legend wrapperStyle={{ color: '#94a3b8', fontSize: 12 }} />
+              </PieChart>
+            </ResponsiveContainer>
+          ) : (
+            <div className="flex items-center justify-center h-48 text-slate-500 text-sm">Chưa có dữ liệu tương tác</div>
+          )}
+        </ChartCard>
+      </div>
+    </div>
+  )
+}

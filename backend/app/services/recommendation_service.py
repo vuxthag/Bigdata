@@ -70,7 +70,7 @@ async def recommend_by_title(
     result = await db.execute(
         select(Job).where(
             Job.position_title.ilike(f"%{job_title}%"),
-            Job.is_active == True,
+            Job.is_active.is_(True),
             Job.embedding.isnot(None),
         ).limit(1)
     )

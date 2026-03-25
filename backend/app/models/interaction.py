@@ -2,12 +2,8 @@
 models/interaction.py
 ======================
 SQLAlchemy ORM model for user_interactions table.
-Used as training signal for continual learning.
-
-Label mapping:
-  'applied' / 'saved'  → positive pair (label = 1.0)
-  'skipped'            → negative pair (label = 0.0)
-  'viewed'             → neutral, not used for training
+Fix: use Enum values directly as strings, not as Python Enum references
+     to avoid SQLAlchemy enum registration issues with asyncpg.
 """
 from __future__ import annotations
 
@@ -36,16 +32,29 @@ class UserInteraction(Base):
         UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
     )
     user_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
+        UUID(as_uuid=True),
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
     )
     cv_id: Mapped[uuid.UUID | None] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("cvs.id", ondelete="SET NULL"), nullable=True
+        UUID(as_uuid=True),
+        ForeignKey("cvs.id", ondelete="SET NULL"),
+        nullable=True,
     )
     job_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("job_descriptions.id", ondelete="CASCADE"), nullable=False
+        UUID(as_uuid=True),
+        ForeignKey("job_descriptions.id", ondelete="CASCADE"),
+        nullable=False,
     )
     action: Mapped[InteractionAction] = mapped_column(
-        Enum(InteractionAction, name="interaction_action_enum"), nullable=False
+        Enum(
+            InteractionAction,
+            name="interaction_action_enum",
+            create_type=True,
+            values_callable=lambda x: [e.value for e in x],
+        ),
+        nullable=False,
     )
     similarity_score: Mapped[float | None] = mapped_column(Float, nullable=True)
     is_trained: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)

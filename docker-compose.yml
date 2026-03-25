@@ -33,12 +33,15 @@ services:
       SBERT_MODEL_NAME: all-MiniLM-L6-v2
       EMBEDDING_DIM: "384"
       RETRAIN_THRESHOLD: "100"
+      RETRAIN_SCHEDULE_HOURS: "1"
       MODEL_CHECKPOINT_DIR: /app/ml_checkpoints/
       MAX_UPLOAD_SIZE_MB: "10"
+      # Path inside Docker container (./data on host is mounted to /app/data)
+      SEED_DATA_PATH: /app/data/training_data.csv
     ports:
       - "8000:8000"
     volumes:
-      - ./data:/app/data
+      - ./data:/app/data:ro
       - ml_checkpoints:/app/ml_checkpoints
     restart: unless-stopped
 
@@ -51,8 +54,6 @@ services:
       - backend
     ports:
       - "5173:80"
-    environment:
-      VITE_API_URL: http://localhost:8000/api/v1
     restart: unless-stopped
 
 volumes:

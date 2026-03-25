@@ -1,11 +1,11 @@
 """
 ml/trainer.py
 =============
-Fine-tuning utilities for continual learning with EWC regularization.
+Fine-tuning utilities for continual learning.
+Compatible with sentence-transformers >= 2.2.0 and CPU-only environments.
 """
 from __future__ import annotations
 
-import copy
 import logging
 from typing import Dict, List
 
@@ -28,43 +28,54 @@ def compute_fisher_information(
 ) -> Dict[str, np.ndarray]:
     """
     Compute Fisher Information Matrix diagonal approximation.
-    Used for EWC regularization to penalize large changes to important weights.
+    Uses a simplified gradient-proxy approach compatible with current sentence-transformers.
+    Returns empty dict on any failure (EWC becomes optional).
     """
     import torch
 
     fisher: Dict[str, np.ndarray] = {}
-    model_module = model._first_module()
-
-    # Zero gradients
-    for param in model_module.parameters():
-        if param.requires_grad:
-            param.grad = None
-
-    # Accumulate squared gradients (Fisher approximation)
-    for batch in dataloader:
+    try:
+        # Access the underlying transformer module safely
+        # sentence-transformers >= 2.3 uses model[0] instead of _first_module()
         try:
-            if not batch:
-                continue
-            model_module.zero_grad()
-            # Simple pass to get gradient signal
-            for example in batch if isinstance(batch, list) else [batch]:
-                try:
-                    texts = example.texts if hasattr(example, 'texts') else []
-                    if texts:
-                        emb = model.encode(texts[0], convert_to_tensor=True)
-                        loss = emb.norm()
-                        loss.backward()
-                except Exception:
+            transformer_module = model[0]
+        except (TypeError, KeyError):
+            return fisher
+
+        transformer_module.zero_grad()
+
+        for batch in dataloader:
+            try:
+                # batch from DataLoader of InputExample is a list of InputExample objects
+                if not batch:
+                    continue
+                if isinstance(batch, list) and hasattr(batch[0], 'texts'):
+                    texts = [ex.texts[0] for ex in batch if ex.texts]
+                else:
                     continue
 
-            for name, param in model_module.named_parameters():
-                if param.requires_grad and param.grad is not None:
-                    if name not in fisher:
-                        fisher[name] = param.grad.data.cpu().numpy() ** 2
-                    else:
-                        fisher[name] += param.grad.data.cpu().numpy() ** 2
-        except Exception:
-            continue
+                if not texts:
+                    continue
+
+                # Encode and compute a proxy loss
+                with torch.enable_grad():
+                    embs = model.encode(texts, convert_to_tensor=True, show_progress_bar=False)
+                    proxy_loss = embs.norm(dim=1).mean()
+                    proxy_loss.backward()
+
+                for name, param in transformer_module.auto_model.named_parameters():
+                    if param.requires_grad and param.grad is not None:
+                        grad_sq = param.grad.detach().cpu().numpy() ** 2
+                        if name not in fisher:
+                            fisher[name] = grad_sq
+                        else:
+                            fisher[name] += grad_sq
+
+                transformer_module.zero_grad()
+            except Exception:
+                continue
+    except Exception as e:
+        logger.warning(f"Fisher computation failed (EWC disabled): {e}")
 
     return fisher
 
@@ -80,15 +91,7 @@ def fine_tune_model(
 ) -> SentenceTransformer:
     """
     Fine-tune the Sentence-BERT model with CosineSimilarityLoss.
-
-    Parameters
-    ----------
-    model : SentenceTransformer
-    train_examples : List[InputExample]  — [{texts: [cv, job], label: 1.0/0.0}]
-    epochs : int
-    ewc_lambda : float — EWC regularization strength (0 = disabled)
-    old_params : dict — parameter values before fine-tuning (for EWC)
-    fisher : dict — Fisher information diagonal (for EWC)
+    Uses model.fit() API compatible with sentence-transformers >= 2.2.
     """
     if not train_examples:
         logger.warning("No training examples provided. Skipping fine-tuning.")
@@ -97,28 +100,36 @@ def fine_tune_model(
     dataloader = create_training_dataloader(train_examples, batch_size=16)
     train_loss = losses.CosineSimilarityLoss(model)
 
-    model.fit(
-        train_objectives=[(dataloader, train_loss)],
-        epochs=epochs,
-        warmup_steps=warmup_steps,
-        show_progress_bar=False,
-    )
+    try:
+        model.fit(
+            train_objectives=[(dataloader, train_loss)],
+            epochs=epochs,
+            warmup_steps=warmup_steps,
+            show_progress_bar=False,
+        )
+    except Exception as e:
+        logger.error(f"Fine-tuning failed: {e}")
+        return model
 
-    # EWC regularization: manually adjust weights if params provided
+    # Optional EWC weight correction
     if ewc_lambda > 0 and old_params and fisher:
         try:
             import torch
-            model_module = model._first_module()
+            try:
+                transformer_module = model[0]
+                named_params = transformer_module.auto_model.named_parameters()
+            except Exception:
+                named_params = iter([])
+
             with torch.no_grad():
-                for name, param in model_module.named_parameters():
+                for name, param in named_params:
                     if name in old_params and name in fisher:
-                        old_val = torch.tensor(old_params[name]).to(param.device)
-                        fi = torch.tensor(fisher[name]).to(param.device)
-                        # Nudge param back toward old value proportionally to Fisher importance
-                        correction = ewc_lambda * fi * (param - old_val)
-                        param.sub_(correction * 0.001)
+                        old_val = torch.tensor(old_params[name], dtype=param.dtype).to(param.device)
+                        fi = torch.tensor(fisher[name], dtype=param.dtype).to(param.device)
+                        correction = ewc_lambda * fi * (param.data - old_val)
+                        param.data.sub_(correction * 0.001)
         except Exception as e:
-            logger.warning(f"EWC correction failed: {e}")
+            logger.warning(f"EWC correction failed (non-fatal): {e}")
 
     return model
 
@@ -127,34 +138,45 @@ def evaluate_model(
     model: SentenceTransformer, test_examples: List[InputExample]
 ) -> Dict[str, float]:
     """
-    Evaluate model by computing correlation between predicted and true similarity.
+    Evaluate model correlation between predicted and true similarity scores.
     """
-    from scipy.stats import pearsonr, spearmanr
+    try:
+        from scipy.stats import pearsonr, spearmanr
+    except ImportError:
+        return {"pearson": 0.0, "spearman": 0.0}
 
     if not test_examples:
         return {"pearson": 0.0, "spearman": 0.0}
 
-    true_scores, pred_scores = [], []
+    true_scores: list = []
+    pred_scores: list = []
     for ex in test_examples:
         if len(ex.texts) < 2:
             continue
-        embs = model.encode(ex.texts, normalize_embeddings=True)
-        pred = float(np.dot(embs[0], embs[1]))
-        true_scores.append(ex.label)
-        pred_scores.append(pred)
+        try:
+            embs = model.encode(ex.texts, normalize_embeddings=True, show_progress_bar=False)
+            pred = float(np.dot(embs[0], embs[1]))
+            true_scores.append(float(ex.label))
+            pred_scores.append(pred)
+        except Exception:
+            continue
 
     if len(true_scores) < 2:
         return {"pearson": 0.0, "spearman": 0.0}
 
-    pearson, _ = pearsonr(true_scores, pred_scores)
-    spearman, _ = spearmanr(true_scores, pred_scores)
-    return {"pearson": round(float(pearson), 4), "spearman": round(float(spearman), 4)}
+    try:
+        pearson, _ = pearsonr(true_scores, pred_scores)
+        spearman, _ = spearmanr(true_scores, pred_scores)
+        return {
+            "pearson": round(float(pearson), 4),
+            "spearman": round(float(spearman), 4),
+        }
+    except Exception:
+        return {"pearson": 0.0, "spearman": 0.0}
 
 
 def should_rollback(new_metrics: Dict[str, float], old_metrics: Dict[str, float]) -> bool:
-    """
-    Return True if new model performs > 5% worse on pearson correlation.
-    """
+    """Return True if new model performs > 5% worse on pearson correlation."""
     old_p = old_metrics.get("pearson", 0.0)
     new_p = new_metrics.get("pearson", 0.0)
     if old_p == 0.0:

@@ -33,9 +33,14 @@ async def register(body: UserCreate, db: AsyncSession = Depends(get_db)):
             detail="Email already registered",
         )
 
+    try:
+        hashed = hash_password(body.password)
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(e))
+
     user = User(
         email=body.email,
-        hashed_password=hash_password(body.password),
+        hashed_password=hashed,
         full_name=body.full_name,
     )
     db.add(user)

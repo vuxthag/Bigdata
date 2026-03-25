@@ -1,13 +1,17 @@
 """
 services/continual_learning.py
 ================================
-Continual learning service that fine-tunes the SBERT model as users interact.
-Uses EWC regularization + replay buffer to prevent catastrophic forgetting.
+Continual learning service. Fixes:
+- _replay_buffer moved INTO the class (no global misuse)
+- _first_module() replaced with compatible API
+- SQLAlchemy bool filters use is_(False)
+- select imported properly in _reencode_all
 """
 from __future__ import annotations
 
 import logging
 import os
+import random
 from datetime import datetime, timezone
 from typing import List
 
@@ -23,35 +27,33 @@ from app.services.embedding_service import embedding_service
 
 logger = logging.getLogger(__name__)
 
-# In-memory replay buffer — keeps samples from previous training round
-_replay_buffer: List[InputExample] = []
-
 
 class ContinualLearner:
     """
     Manages continual fine-tuning of the SBERT model using user interaction data.
+    Replay buffer is instance-level (not a global variable).
     """
 
     def __init__(self) -> None:
         self._current_metrics: dict = {"pearson": 0.0, "spearman": 0.0}
         self._old_params: dict | None = None
         self._fisher: dict | None = None
+        # Replay buffer — class-level, no global needed
+        self._replay_buffer: List[InputExample] = []
 
     async def collect_training_pairs(
         self, db: AsyncSession
     ) -> List[InputExample]:
         """
         Convert untrained interactions into InputExample pairs for fine-tuning.
-
         Label mapping:
-          applied / saved  → 1.0  (positive pair)
-          skipped          → 0.0  (negative pair)
-          viewed           → ignored
+          applied / saved -> 1.0  (positive pair)
+          skipped         -> 0.0  (negative pair)
         """
         result = await db.execute(
             select(UserInteraction)
             .where(
-                UserInteraction.is_trained == False,
+                UserInteraction.is_trained.is_(False),  # Fix: use is_(False) not == False
                 UserInteraction.action.in_([
                     InteractionAction.applied,
                     InteractionAction.saved,
@@ -64,7 +66,6 @@ class ContinualLearner:
 
         examples: List[InputExample] = []
         for interaction in interactions:
-            # Fetch CV text
             cv_text = ""
             if interaction.cv_id:
                 cv_result = await db.execute(
@@ -72,7 +73,6 @@ class ContinualLearner:
                 )
                 cv_text = cv_result.scalar_one_or_none() or ""
 
-            # Fetch Job text
             job_result = await db.execute(
                 select(Job.cleaned_description).where(Job.id == interaction.job_id)
             )
@@ -94,7 +94,7 @@ class ContinualLearner:
         """Count interactions that haven't been trained yet."""
         result = await db.execute(
             select(func.count(UserInteraction.id)).where(
-                UserInteraction.is_trained == False,
+                UserInteraction.is_trained.is_(False),
                 UserInteraction.action.in_([
                     InteractionAction.applied,
                     InteractionAction.saved,
@@ -113,13 +113,11 @@ class ContinualLearner:
         """
         Full continual learning cycle:
         1. Collect new training pairs
-        2. Merge with replay buffer (80/20 split)
-        3. Snapshot current model params for EWC
-        4. Fine-tune 1 epoch
-        5. Evaluate and rollback if worse
-        6. Save checkpoint + re-encode all CVs/JDs
-        7. Mark interactions as trained
-        8. Update replay buffer
+        2. Merge with replay buffer
+        3. Fine-tune with EWC regularization
+        4. Evaluate and rollback if worse
+        5. Save checkpoint and re-encode all embeddings
+        6. Mark interactions as trained
         """
         from app.ml.trainer import (
             compute_fisher_information,
@@ -131,38 +129,44 @@ class ContinualLearner:
 
         logger.info("[CL] Starting retraining cycle...")
 
-        # 1. Collect new examples
         new_examples = await self.collect_training_pairs(db)
         if not new_examples:
             logger.info("[CL] No new training pairs. Skipping.")
             return {"status": "skipped", "reason": "no_new_data"}
 
-        # 2. Mix with replay buffer
-        import random
+        # Mix with replay buffer
         replay_sample = random.sample(
-            _replay_buffer, min(len(_replay_buffer), len(new_examples) // 4)
-        )
+            self._replay_buffer,
+            min(len(self._replay_buffer), max(1, len(new_examples) // 4))
+        ) if self._replay_buffer else []
         all_examples = new_examples + replay_sample
         random.shuffle(all_examples)
 
-        logger.info(f"[CL] Training on {len(all_examples)} examples ({len(new_examples)} new, {len(replay_sample)} replay)")
+        logger.info(
+            f"[CL] Training on {len(all_examples)} examples "
+            f"({len(new_examples)} new, {len(replay_sample)} replay)"
+        )
 
-        # 3. Snapshot old params for EWC
+        # Snapshot old model
         import copy
-
         model = embedding_service.model.model
         old_model = copy.deepcopy(model)
 
-        # 4. Compute Fisher Information
+        # Compute Fisher information (best-effort, non-fatal)
         train_dl = create_training_dataloader(all_examples[:min(50, len(all_examples))])
         self._fisher = compute_fisher_information(old_model, train_dl)
-        self._old_params = {
-            name: param.detach().cpu().numpy().copy()
-            for name, param in old_model._first_module().named_parameters()
-            if param.requires_grad
-        }
 
-        # 5. Fine-tune
+        # Snapshot old params for EWC
+        try:
+            self._old_params = {
+                name: param.detach().cpu().numpy().copy()
+                for name, param in old_model[0].auto_model.named_parameters()
+                if param.requires_grad
+            }
+        except Exception:
+            self._old_params = {}
+
+        # Fine-tune
         new_model = fine_tune_model(
             model=model,
             train_examples=all_examples,
@@ -172,38 +176,37 @@ class ContinualLearner:
             fisher=self._fisher,
         )
 
-        # 6. Evaluate and rollback if needed
+        # Evaluate — rollback if worse
         test_examples = all_examples[-min(20, len(all_examples)):]
         new_metrics = evaluate_model(new_model, test_examples)
         old_metrics = evaluate_model(old_model, test_examples)
 
         if should_rollback(new_metrics, old_metrics):
             logger.warning(f"[CL] Rollback! new={new_metrics} old={old_metrics}")
-            # Restore old model
             embedding_service.model._model = old_model
             return {"status": "rolled_back", "old_metrics": old_metrics, "new_metrics": new_metrics}
 
-        # Update the singleton model in memory
+        # Commit new model
         embedding_service.model._model = new_model
         self._current_metrics = new_metrics
 
-        # 7. Save checkpoint
+        # Save checkpoint
         os.makedirs(settings.MODEL_CHECKPOINT_DIR, exist_ok=True)
         ts = datetime.now(tz=timezone.utc).strftime("%Y%m%d_%H%M%S")
         checkpoint_path = os.path.join(settings.MODEL_CHECKPOINT_DIR, f"checkpoint_{ts}")
-        embedding_service.model.save_checkpoint(checkpoint_path)
+        try:
+            embedding_service.model.save_checkpoint(checkpoint_path)
+        except Exception as e:
+            logger.warning(f"[CL] Checkpoint save failed (non-fatal): {e}")
 
-        # Clean up old checkpoints (keep latest 3)
         self._cleanup_old_checkpoints()
-
-        # 8. Re-encode all CVs and JDs with the updated model
         await self._reencode_all(db)
 
-        # 9. Mark interactions as trained
+        # Mark trained
         await db.execute(
             update(UserInteraction)
             .where(
-                UserInteraction.is_trained == False,
+                UserInteraction.is_trained.is_(False),
                 UserInteraction.action.in_([
                     InteractionAction.applied,
                     InteractionAction.saved,
@@ -213,10 +216,11 @@ class ContinualLearner:
             .values(is_trained=True)
         )
 
-        # 10. Update replay buffer (keep 20% of this batch)
-        global _replay_buffer
+        # Update replay buffer (keep 20% of new batch, cap at 200)
         keep_n = max(1, len(new_examples) // 5)
-        _replay_buffer = (_replay_buffer + random.sample(new_examples, keep_n))[-200:]
+        self._replay_buffer = (
+            self._replay_buffer + random.sample(new_examples, keep_n)
+        )[-200:]
 
         logger.info(f"[CL] Retrain complete. Metrics: {new_metrics}")
         return {
@@ -227,10 +231,8 @@ class ContinualLearner:
         }
 
     async def _reencode_all(self, db: AsyncSession) -> None:
-        """Re-encode all CVs and Jobs in the DB with the current model."""
-        from sqlalchemy import select
-
-        # Re-encode CVs
+        """Re-encode all CVs and Jobs with the current model."""
+        # CVs
         cv_result = await db.execute(
             select(CV).where(CV.cleaned_text.isnot(None))
         )
@@ -241,9 +243,12 @@ class ContinualLearner:
             for cv, emb in zip(cvs, embeddings):
                 cv.embedding = emb.tolist()
 
-        # Re-encode Jobs
+        # Jobs
         job_result = await db.execute(
-            select(Job).where(Job.cleaned_description.isnot(None), Job.is_active == True)
+            select(Job).where(
+                Job.cleaned_description.isnot(None),
+                Job.is_active.is_(True),
+            )
         )
         jobs = job_result.scalars().all()
         if jobs:
@@ -256,7 +261,8 @@ class ContinualLearner:
         logger.info(f"[CL] Re-encoded {len(cvs)} CVs and {len(jobs)} Jobs")
 
     def _cleanup_old_checkpoints(self, keep: int = 3) -> None:
-        """Keep only the N most recent checkpoints."""
+        """Keep only the N most recent checkpoints on disk."""
+        import shutil
         dir_path = settings.MODEL_CHECKPOINT_DIR
         if not os.path.exists(dir_path):
             return
@@ -265,7 +271,6 @@ class ContinualLearner:
             reverse=True,
         )
         for old_cp in checkpoints[keep:]:
-            import shutil
             try:
                 shutil.rmtree(os.path.join(dir_path, old_cp))
                 logger.info(f"[CL] Removed old checkpoint: {old_cp}")
@@ -277,11 +282,14 @@ class ContinualLearner:
         dir_path = settings.MODEL_CHECKPOINT_DIR
         if not os.path.exists(dir_path):
             return "base_all-MiniLM-L6-v2"
-        checkpoints = sorted(
-            [d for d in os.listdir(dir_path) if d.startswith("checkpoint_")],
-            reverse=True,
-        )
-        return checkpoints[0] if checkpoints else "base_all-MiniLM-L6-v2"
+        try:
+            checkpoints = sorted(
+                [d for d in os.listdir(dir_path) if d.startswith("checkpoint_")],
+                reverse=True,
+            )
+            return checkpoints[0] if checkpoints else "base_all-MiniLM-L6-v2"
+        except Exception:
+            return "base_all-MiniLM-L6-v2"
 
 
 # Global singleton

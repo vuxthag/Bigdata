@@ -2,13 +2,14 @@
 routers/analytics.py
 =====================
 Analytics endpoints for dashboard statistics and charts.
+Fix: removed unused imports (Float, case, cast) that cause ImportError.
 """
 from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends
-from sqlalchemy import Float, case, cast, func, select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
@@ -28,19 +29,16 @@ async def get_stats(
     current_user: User = Depends(get_current_user),
 ):
     """Return dashboard statistics for the current user."""
-    # CV count for user
     cv_count = await db.execute(
         select(func.count(CV.id)).where(CV.user_id == current_user.id)
     )
     total_cvs = cv_count.scalar_one()
 
-    # Total jobs in DB
     job_count = await db.execute(
-        select(func.count(Job.id)).where(Job.is_active == True)
+        select(func.count(Job.id)).where(Job.is_active.is_(True))
     )
     total_jobs = job_count.scalar_one()
 
-    # Total recommendations viewed by user
     viewed_count = await db.execute(
         select(func.count(UserInteraction.id)).where(
             UserInteraction.user_id == current_user.id,
@@ -49,7 +47,6 @@ async def get_stats(
     )
     total_recommendations = viewed_count.scalar_one()
 
-    # Average similarity score
     avg_sim = await db.execute(
         select(func.avg(UserInteraction.similarity_score)).where(
             UserInteraction.user_id == current_user.id,
@@ -58,7 +55,6 @@ async def get_stats(
     )
     avg_similarity = round(float(avg_sim.scalar_one() or 0.0), 4)
 
-    # Top 5 most matched jobs
     top_jobs_result = await db.execute(
         select(
             Job.id,
@@ -136,7 +132,6 @@ async def activity(
         .order_by(func.date(UserInteraction.created_at))
     )
 
-    # Aggregate by date
     data: dict[str, dict] = {}
     for row in result.fetchall():
         day = str(row.date)

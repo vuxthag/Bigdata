@@ -36,14 +36,29 @@ services:
       RETRAIN_SCHEDULE_HOURS: "1"
       MODEL_CHECKPOINT_DIR: /app/ml_checkpoints/
       MAX_UPLOAD_SIZE_MB: "10"
-      # Path inside Docker container (./data on host is mounted to /app/data)
       SEED_DATA_PATH: /app/data/training_data.csv
+      # ── Crawler settings ─────────────────────────────────────────────────
+      CRAWLER_INTERVAL_MINUTES: "10"
+      CRAWLER_MAX_JOBS_PER_RUN: "30"
+      CRAWLER_PAGES_PER_RUN: "2"
+      CRAWLER_REQUEST_DELAY: "1.5"
+      CRAWLER_MAX_RETRIES: "3"
+      CRAWLER_BACKOFF_FACTOR: "2.0"
+      CRAWLER_TIMEOUT: "15"
+      CRAWLER_EMBED_ON_INSERT: "true"
+      ITVIEC_BASE_URL: https://itviec.com
+      ITVIEC_JOBS_PATH: /it-jobs
+      # ── Alert system (optional) ───────────────────────────────────────────
+      # Set these to receive Telegram alerts when crawler is blocked:
+      TELEGRAM_BOT_TOKEN: ""
+      TELEGRAM_CHAT_ID: ""
     ports:
       - "8000:8000"
     volumes:
       - ./data:/app/data:ro
       - ml_checkpoints:/app/ml_checkpoints
     restart: unless-stopped
+
 
   frontend:
     build:

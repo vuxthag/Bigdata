@@ -65,6 +65,8 @@ async def upload_cv(
     )
     db.add(cv)
     await db.flush()
+    await db.commit()
+    await db.refresh(cv)
 
     return CVResponse.model_validate(cv)
 
@@ -82,6 +84,20 @@ async def list_cvs(
     return CVListResponse(items=[CVResponse.model_validate(c) for c in cvs], total=len(cvs))
 
 
+@router.get("/{cv_id}", response_model=CVResponse)
+async def get_cv(
+    cv_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Get a single CV by ID (must be owned by current user)."""
+    result = await db.execute(select(CV).where(CV.id == cv_id, CV.user_id == current_user.id))
+    cv = result.scalar_one_or_none()
+    if cv is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="CV not found")
+    return CVResponse.model_validate(cv)
+
+
 @router.delete("/{cv_id}", status_code=status.HTTP_200_OK)
 async def delete_cv(
     cv_id: uuid.UUID,
@@ -95,4 +111,5 @@ async def delete_cv(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="CV not found")
 
     await db.delete(cv)
+    await db.commit()
     return {"message": "CV deleted successfully"}

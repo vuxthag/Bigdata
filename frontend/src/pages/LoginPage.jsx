@@ -19,7 +19,9 @@ export default function LoginPage() {
     try {
       const res = await authApi.login(form)
       const token = res.data.access_token
-      // Fetch user info
+      // Save token FIRST so axios interceptor can attach it
+      localStorage.setItem('token', token)
+      // Now fetch user info (token is available for Authorization header)
       const meRes = await authApi.me()
       login(meRes.data, token)
       navigate('/dashboard')

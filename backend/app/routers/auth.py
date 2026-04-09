@@ -45,6 +45,8 @@ async def register(body: UserCreate, db: AsyncSession = Depends(get_db)):
     )
     db.add(user)
     await db.flush()  # get the UUID
+    await db.commit()  # persist user to database immediately
+    await db.refresh(user)  # reload server-generated fields
 
     token, expires_in = create_access_token(user.id)
     return RegisterResponse(

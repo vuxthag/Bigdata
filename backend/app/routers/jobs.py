@@ -82,4 +82,32 @@ async def create_job(
     )
     db.add(job)
     await db.flush()
+    await db.commit()
+    await db.refresh(job)
     return JobResponse.model_validate(job)
+
+
+@router.post("/upload", response_model=JobResponse, status_code=status.HTTP_201_CREATED)
+async def upload_job(
+    body: JobCreate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Upload a new job description (alias for POST /jobs)."""
+    return await create_job(body, db, current_user)
+
+
+@router.delete("/{job_id}", status_code=status.HTTP_200_OK)
+async def delete_job(
+    job_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Soft-delete a job (set is_active = False)."""
+    result = await db.execute(select(Job).where(Job.id == job_id))
+    job = result.scalar_one_or_none()
+    if job is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Job not found")
+    job.is_active = False
+    await db.commit()
+    return {"message": "Job deleted successfully"}

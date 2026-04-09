@@ -2,6 +2,9 @@ import apiClient from './client'
 
 export const analyticsApi = {
   stats: () => apiClient.get('/analytics/stats'),
+  dashboard: () => apiClient.get('/analytics/dashboard'),
   similarityDistribution: () => apiClient.get('/analytics/similarity-distribution'),
+  similarity: () => apiClient.get('/analytics/similarity'),
   activity: () => apiClient.get('/analytics/activity'),
+  topJobs: () => apiClient.get('/analytics/top-jobs'),
 }

@@ -1,6 +1,6 @@
 # JobMatch AI — Job Recommendation System v2.0
 
-> **SBERT-powered job recommendation with Continual Learning, FastAPI backend, and React frontend**
+> **SBERT-powered job recommendation with multi-source crawling, real-time matching, and monitoring dashboard**
 
 ## 🏗️ Architecture
 
@@ -8,6 +8,10 @@
 React (Vite + TailwindCSS)  →  FastAPI  →  PostgreSQL + pgvector
                                   ↕
                           Sentence-BERT + Continual Learning
+                                  ↕
+                 APScheduler → [ITviec | TopCV | VietnamWorks] Crawlers
+                                  ↓
+                        Real-time CV→Job Matching Trigger
 ```
 
 ## 🚀 Quick Start
@@ -35,6 +39,8 @@ This starts:
 | **Frontend** | http://localhost:5173 |
 | **API Docs (Swagger)** | http://localhost:8000/api/docs |
 | **Health Check** | http://localhost:8000/health |
+| **Crawler Stats** | http://localhost:8000/api/v1/crawler/stats |
+| **Crawler Logs** | http://localhost:8000/api/v1/crawler/logs |
 
 ---
 
@@ -43,7 +49,7 @@ This starts:
 ### Backend
 
 ```bash
-# 1. Create conda/venv
+# 1. Create virtualenv
 python -m venv venv
 venv\Scripts\activate      # Windows
 
@@ -71,20 +77,57 @@ npm run dev        # Starts on http://localhost:5173
 
 ---
 
+## 🕷️ Running Crawlers Manually
+
+```bash
+cd backend
+
+# Crawl all sources (ITviec + TopCV + VietnamWorks)
+python -m crawler.main --source all --pages 1
+
+# Crawl a specific source
+python -m crawler.main --source itviec --pages 2
+python -m crawler.main --source topcv --pages 1
+python -m crawler.main --source vietnamworks --pages 1
+
+# Skip embedding generation (faster for testing)
+python -m crawler.main --source all --pages 1 --no-embed
+```
+
+**Automated crawling** runs every 10 minutes via APScheduler (starts with FastAPI):
+- ITviec starts immediately
+- TopCV starts 3 minutes after ITviec
+- VietnamWorks starts 6 minutes after ITviec
+
+---
+
 ## 📁 Project Structure
 
 ```
 cv-job-recommendation-system/
 ├── backend/
 │   ├── app/
-│   │   ├── main.py                # FastAPI entry point
+│   │   ├── main.py                # FastAPI entry point + scheduler registration
 │   │   ├── config.py              # Settings
 │   │   ├── database.py            # SQLAlchemy async
-│   │   ├── models/                # ORM: User, CV, Job, Interaction
+│   │   ├── models/                # ORM: User, CV, Job, Interaction, CrawlLog
 │   │   ├── schemas/               # Pydantic schemas
-│   │   ├── routers/               # auth, cvs, jobs, recommend, analytics
+│   │   ├── routers/               # auth, cvs, jobs, recommend, analytics, crawler
 │   │   ├── services/              # auth, cv_parser, embedding, recommendation, continual_learning
+│   │   │                          # + recommendation_trigger (real-time matching)
 │   │   └── ml/                    # preprocessing, sbert_model, trainer, recommender
+│   ├── crawler/
+│   │   ├── base_crawler.py        # Abstract base class + RawJob dataclass
+│   │   ├── itviec_crawler.py      # ITviec scraper
+│   │   ├── topcv_crawler.py       # TopCV scraper (NEW)
+│   │   ├── vietnamworks_crawler.py# VietnamWorks scraper (NEW)
+│   │   ├── pipeline.py            # Crawl → clean → embed → upsert pipeline
+│   │   ├── scheduler.py           # APScheduler job registration (3 sources)
+│   │   ├── main.py                # CLI entry point (--source all/itviec/topcv/...)
+│   │   ├── alerts.py              # Telegram/console alert system (NEW)
+│   │   ├── database.py            # upsert_job + dedup helpers
+│   │   ├── config.py              # Crawler env settings
+│   │   └── utils.py               # HTTP session, HTML cleaning, skill extraction
 │   ├── Dockerfile
 │   ├── requirements.txt
 │   └── .env.example
@@ -92,7 +135,7 @@ cv-job-recommendation-system/
 ├── frontend/
 │   ├── src/
 │   │   ├── pages/                 # Login, Register, Dashboard, Upload, Recommend, Analytics
-│   │   ├── components/layout/     # Sidebar, Navbar, PageLayout
+│   │   ├── components/layout/     # Navbar, PublicLayout
 │   │   ├── api/                   # axios clients for all endpoints
 │   │   └── store/                 # Zustand auth store
 │   ├── Dockerfile
@@ -108,22 +151,39 @@ cv-job-recommendation-system/
 
 ## 🤖 Key Features
 
-### 1. Sentence-BERT Recommendations
+### 1. Multi-Source Crawler (NEW)
+- **ITviec** — IT jobs scraper with server-side HTML parsing
+- **TopCV** — Vietnam's largest job platform scraper
+- **VietnamWorks** — HTML + JSON-LD dual parsing strategy
+- All 3 run every 10 minutes via APScheduler (staggered by 3 minutes each)
+- Deduplication by URL, retry with exponential backoff, polite delays
+
+### 2. Real-time Job-to-CV Matching (NEW)
+- When a new job is inserted → automatically computes cosine similarity vs all CV embeddings
+- Top matches (score ≥ 0.40) saved as `UserInteraction` records immediately
+- Users see newly crawled jobs in their recommendations without any action
+
+### 3. Crawler Monitoring (NEW)
+- `GET /api/v1/crawler/stats` — per-source: jobs today, errors, last run time, status
+- `GET /api/v1/crawler/logs` — 50 most recent crawl log entries
+- `GET /api/v1/crawler/trend` — daily jobs per source (last 7 days)
+- Structured JSON logs emitted for every crawl event
+
+### 4. Alert System (NEW)
+- Detects HTTP 403 blocks and high error rates (>50%)
+- Sends Telegram message if `TELEGRAM_BOT_TOKEN` + `TELEGRAM_CHAT_ID` are configured
+- Falls back to console log if not configured
+
+### 5. Sentence-BERT Recommendations
 - Uses `all-MiniLM-L6-v2` (384-dim embeddings, fast CPU inference)
 - pgvector `<=>` cosine distance operator for fast vector search
 - Recommend by uploaded CV or by job title
 
-### 2. Continual Learning
+### 6. Continual Learning
 - Users rate jobs: ✅ Applied / 🔖 Saved / ✕ Skipped
 - After `RETRAIN_THRESHOLD` interactions → background fine-tuning
 - EWC (Elastic Weight Consolidation) + Replay Buffer to prevent catastrophic forgetting
 - Auto-rollback if new model performs >5% worse
-
-### 3. Analytics Dashboard
-- Similarity score distribution histogram
-- Top matched jobs bar chart
-- 7-day activity line chart
-- Applied/Saved/Skipped pie chart
 
 ---
 
@@ -133,7 +193,17 @@ cv-job-recommendation-system/
 # backend/.env
 DATABASE_URL=postgresql+asyncpg://postgres:postgres@localhost/jobrec
 SECRET_KEY=change-this-to-a-random-secret-key-min-32-chars
-RETRAIN_THRESHOLD=100   # Lower to 5 for testing continual learning
+RETRAIN_THRESHOLD=100       # Lower to 5 for testing continual learning
+
+# Crawler
+CRAWLER_INTERVAL_MINUTES=10
+CRAWLER_MAX_JOBS_PER_RUN=30
+CRAWLER_PAGES_PER_RUN=2
+CRAWLER_EMBED_ON_INSERT=true
+
+# Alerts (optional — leave empty to use console-only)
+TELEGRAM_BOT_TOKEN=
+TELEGRAM_CHAT_ID=
 ```
 
 ---
@@ -151,7 +221,11 @@ RETRAIN_THRESHOLD=100   # Lower to 5 for testing continual learning
 | POST | `/api/v1/recommend/feedback` | Rate a recommendation |
 | GET | `/api/v1/analytics/stats` | Dashboard stats |
 | GET | `/api/v1/jobs` | List all jobs |
+| GET | `/api/v1/crawler/stats` | **Crawler monitoring stats** |
+| GET | `/api/v1/crawler/logs` | **Recent crawl logs** |
+| GET | `/api/v1/crawler/logs/{source}` | **Logs for specific source** |
+| GET | `/api/v1/crawler/trend` | **Jobs per day chart data** |
 
 ---
 
-*Built with FastAPI + Sentence-BERT + pgvector + React + TailwindCSS*
+*Built with FastAPI + Sentence-BERT + pgvector + React + TailwindCSS + BeautifulSoup*

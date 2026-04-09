@@ -20,6 +20,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.config import settings
 from app.database import AsyncSessionLocal, init_db
 from app.routers import analytics, auth, cvs, jobs, recommend, users
+from app.routers import crawler as crawler_router
 
 logging.basicConfig(
     level=logging.INFO,
@@ -131,6 +132,15 @@ async def lifespan(app: FastAPI):
         id="continual_learning_job",
         replace_existing=True,
     )
+
+    # Register all crawler jobs (ITviec, TopCV, VietnamWorks)
+    logger.info("[Startup] Registering job crawlers (all sources)...")
+    try:
+        from crawler.scheduler import register_crawler_jobs
+        register_crawler_jobs(scheduler)
+    except Exception as e:
+        logger.error(f"[Startup] Failed to register crawler jobs: {e}")
+
     scheduler.start()
 
     logger.info("[Startup] Job Recommendation API v2.0 ready!")
@@ -169,6 +179,7 @@ app.include_router(cvs.router, prefix=PREFIX)
 app.include_router(jobs.router, prefix=PREFIX)
 app.include_router(recommend.router, prefix=PREFIX)
 app.include_router(analytics.router, prefix=PREFIX)
+app.include_router(crawler_router.router, prefix=PREFIX)
 
 
 # ── Health check ──────────────────────────────────────────────────────────────

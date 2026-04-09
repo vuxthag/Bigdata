@@ -1,8 +1,7 @@
 """
 routers/analytics.py
 =====================
-Analytics endpoints for dashboard statistics and charts.
-Fix: removed unused imports (Float, case, cast) that cause ImportError.
+Analytics endpoints for dashboard statistics, charts, and trends.
 """
 from __future__ import annotations
 
@@ -82,6 +81,114 @@ async def get_stats(
     }
 
 
+@router.get("/dashboard")
+async def get_dashboard(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Comprehensive dashboard data for the analytics page."""
+    # Total counts
+    total_users = (await db.execute(select(func.count(User.id)))).scalar_one()
+    total_cvs = (await db.execute(select(func.count(CV.id)))).scalar_one()
+    total_jobs = (await db.execute(
+        select(func.count(Job.id)).where(Job.is_active.is_(True))
+    )).scalar_one()
+    total_interactions = (await db.execute(
+        select(func.count(UserInteraction.id))
+    )).scalar_one()
+    total_recommendations = (await db.execute(
+        select(func.count(UserInteraction.id)).where(
+            UserInteraction.action == InteractionAction.viewed
+        )
+    )).scalar_one()
+
+    # Average similarity
+    avg_sim_result = (await db.execute(
+        select(func.avg(UserInteraction.similarity_score)).where(
+            UserInteraction.similarity_score.isnot(None)
+        )
+    )).scalar_one()
+    avg_similarity = round(float(avg_sim_result or 0.0), 4)
+
+    # Interaction breakdown
+    action_counts = {}
+    for action in InteractionAction:
+        count = (await db.execute(
+            select(func.count(UserInteraction.id)).where(
+                UserInteraction.action == action
+            )
+        )).scalar_one()
+        action_counts[action.value] = count
+
+    # Most active users (top 5)
+    active_users_result = await db.execute(
+        select(
+            User.id,
+            User.email,
+            User.full_name,
+            func.count(UserInteraction.id).label("activity_count"),
+        )
+        .join(UserInteraction, UserInteraction.user_id == User.id)
+        .group_by(User.id, User.email, User.full_name)
+        .order_by(func.count(UserInteraction.id).desc())
+        .limit(5)
+    )
+    most_active_users = [
+        {
+            "user_id": str(row.id),
+            "email": row.email,
+            "full_name": row.full_name,
+            "activity_count": row.activity_count,
+        }
+        for row in active_users_result.fetchall()
+    ]
+
+    # CV upload trend (last 7 days)
+    seven_days_ago = datetime.now(tz=timezone.utc) - timedelta(days=7)
+    cv_trend_result = await db.execute(
+        select(
+            func.date(CV.uploaded_at).label("date"),
+            func.count(CV.id).label("count"),
+        )
+        .where(CV.uploaded_at >= seven_days_ago)
+        .group_by(func.date(CV.uploaded_at))
+        .order_by(func.date(CV.uploaded_at))
+    )
+    cv_upload_trend = [
+        {"date": str(row.date), "count": row.count}
+        for row in cv_trend_result.fetchall()
+    ]
+
+    # Job upload trend (last 7 days)
+    job_trend_result = await db.execute(
+        select(
+            func.date(Job.created_at).label("date"),
+            func.count(Job.id).label("count"),
+        )
+        .where(Job.created_at >= seven_days_ago)
+        .group_by(func.date(Job.created_at))
+        .order_by(func.date(Job.created_at))
+    )
+    job_upload_trend = [
+        {"date": str(row.date), "count": row.count}
+        for row in job_trend_result.fetchall()
+    ]
+
+    return {
+        "total_users": total_users,
+        "total_cvs": total_cvs,
+        "total_jobs": total_jobs,
+        "total_interactions": total_interactions,
+        "total_recommendations": total_recommendations,
+        "avg_similarity_score": avg_similarity,
+        "action_counts": action_counts,
+        "most_active_users": most_active_users,
+        "cv_upload_trend": cv_upload_trend,
+        "job_upload_trend": job_upload_trend,
+        "model_version": continual_learner.get_model_version(),
+    }
+
+
 @router.get("/similarity-distribution")
 async def similarity_distribution(
     db: AsyncSession = Depends(get_db),
@@ -108,6 +215,15 @@ async def similarity_distribution(
         distribution.append({"range": label, "count": count})
 
     return distribution
+
+
+@router.get("/similarity")
+async def similarity_alias(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Alias for /similarity-distribution."""
+    return await similarity_distribution(db, current_user)
 
 
 @router.get("/activity")
@@ -140,3 +256,32 @@ async def activity(
         data[day][row.action.value] = row.count
 
     return sorted(data.values(), key=lambda x: x["date"])
+
+
+@router.get("/top-jobs")
+async def top_jobs(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Return top recommended jobs (most interactions)."""
+    result = await db.execute(
+        select(
+            Job.id,
+            Job.position_title,
+            func.count(UserInteraction.id).label("interaction_count"),
+            func.avg(UserInteraction.similarity_score).label("avg_score"),
+        )
+        .join(UserInteraction, UserInteraction.job_id == Job.id)
+        .group_by(Job.id, Job.position_title)
+        .order_by(func.count(UserInteraction.id).desc())
+        .limit(10)
+    )
+    return [
+        {
+            "job_id": str(row.id),
+            "title": row.position_title,
+            "interaction_count": row.interaction_count,
+            "avg_similarity": round(float(row.avg_score or 0), 4),
+        }
+        for row in result.fetchall()
+    ]

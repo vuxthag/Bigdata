@@ -1,13 +1,28 @@
 import React, { useEffect } from 'react'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import useAuthStore from './store/authStore'
-import PageLayout from './components/layout/PageLayout'
+
+// Layouts
+import PublicLayout from './components/layout/PublicLayout'
+
+// Public pages
+import HomePage from './pages/HomePage'
 import LoginPage from './pages/LoginPage'
 import RegisterPage from './pages/RegisterPage'
+import JobsPage from './pages/JobsPage'
+import JobDetailPage from './pages/JobDetailPage'
+import CompaniesPage from './pages/CompaniesPage'
+import CompanyDetailPage from './pages/CompanyDetailPage'
+
+// Dashboard pages (protected)
 import DashboardPage from './pages/DashboardPage'
 import UploadCVPage from './pages/UploadCVPage'
+import UploadJobPage from './pages/UploadJobPage'
 import RecommendPage from './pages/RecommendPage'
 import AnalyticsPage from './pages/AnalyticsPage'
+import ProfilePage from './pages/ProfilePage'
+import SavedJobsPage from './pages/SavedJobsPage'
+import AppliedJobsPage from './pages/AppliedJobsPage'
 
 function ProtectedRoute({ children }) {
   const { isAuthenticated } = useAuthStore()
@@ -35,23 +50,39 @@ export default function App() {
   return (
     <BrowserRouter>
       <Routes>
+        {/* ── Public layout (navbar + footer) ─── */}
+        <Route element={<PublicLayout />}>
+          <Route path="/" element={<HomePage />} />
+          <Route path="/jobs" element={<JobsPage />} />
+          <Route path="/jobs/:jobId" element={<JobDetailPage />} />
+          <Route path="/companies" element={<CompaniesPage />} />
+          <Route path="/companies/:companyId" element={<CompanyDetailPage />} />
+        </Route>
+
+        {/* ── Auth pages (standalone, no layout) ─ */}
         <Route path="/login" element={<LoginPage />} />
         <Route path="/register" element={<RegisterPage />} />
+
+        {/* ── Dashboard layout (top navbar, protected) ─ */}
         <Route
-          path="/"
           element={
             <ProtectedRoute>
-              <PageLayout />
+              <PublicLayout hideFooter />
             </ProtectedRoute>
           }
         >
-          <Route index element={<Navigate to="/dashboard" replace />} />
-          <Route path="dashboard" element={<DashboardPage />} />
-          <Route path="upload" element={<UploadCVPage />} />
-          <Route path="recommend" element={<RecommendPage />} />
-          <Route path="analytics" element={<AnalyticsPage />} />
+          <Route path="/dashboard" element={<DashboardPage />} />
+          <Route path="/upload" element={<UploadCVPage />} />
+          <Route path="/upload-job" element={<UploadJobPage />} />
+          <Route path="/recommend" element={<RecommendPage />} />
+          <Route path="/analytics" element={<AnalyticsPage />} />
+          <Route path="/profile" element={<ProfilePage />} />
+          <Route path="/saved-jobs" element={<SavedJobsPage />} />
+          <Route path="/applied-jobs" element={<AppliedJobsPage />} />
         </Route>
-        <Route path="*" element={<Navigate to={isAuthenticated ? '/dashboard' : '/login'} replace />} />
+
+        {/* ── Catch-all ────────────────────────── */}
+        <Route path="*" element={<Navigate to={isAuthenticated ? '/dashboard' : '/'} replace />} />
       </Routes>
     </BrowserRouter>
   )

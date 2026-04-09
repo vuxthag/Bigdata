@@ -98,4 +98,85 @@ async def feedback(
         cv_id=body.cv_id,
         similarity_score=body.similarity_score,
     )
+    await db.commit()
     return {"message": "Feedback recorded", "action": body.action}
+
+
+@router.get("/jobs/{cv_id}", response_model=RecommendResponse)
+async def recommend_jobs_for_cv(
+    cv_id: uuid.UUID,
+    top_n: int = 5,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """GET endpoint: Recommend jobs matching a given CV."""
+    result = await db.execute(
+        select(CV).where(CV.id == cv_id, CV.user_id == current_user.id)
+    )
+    if result.scalar_one_or_none() is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="CV not found")
+
+    recommendations = await recommend_by_cv(cv_id, db, top_n)
+
+    for rec in recommendations:
+        await log_interaction(
+            user_id=current_user.id,
+            job_id=rec.job_id,
+            action="viewed",
+            db=db,
+            cv_id=cv_id,
+            similarity_score=rec.similarity_score,
+        )
+    await db.commit()
+
+    return RecommendResponse(
+        query=str(cv_id),
+        results=recommendations,
+        model_version=continual_learner.get_model_version(),
+    )
+
+
+@router.get("/candidates/{job_id}", response_model=RecommendResponse)
+async def recommend_candidates_for_job(
+    job_id: uuid.UUID,
+    top_n: int = 5,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """GET endpoint: Recommend CVs (candidates) matching a given Job."""
+    from app.models.job import Job
+    from sqlalchemy import text as sa_text
+
+    result = await db.execute(select(Job).where(Job.id == job_id, Job.is_active.is_(True)))
+    job = result.scalar_one_or_none()
+    if job is None or job.embedding is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Job not found or has no embedding")
+
+    embedding_str = "[" + ",".join(str(x) for x in job.embedding) + "]"
+    query = sa_text(
+        """
+        SELECT c.id, c.filename, c.raw_text,
+               1 - (c.embedding <=> CAST(:embedding AS vector)) AS similarity_score
+        FROM cvs c
+        WHERE c.embedding IS NOT NULL
+        ORDER BY c.embedding <=> CAST(:embedding AS vector)
+        LIMIT :limit
+        """
+    )
+    rows = await db.execute(query, {"embedding": embedding_str, "limit": top_n})
+
+    results = [
+        RecommendedJob(
+            job_id=row.id,
+            position_title=row.filename,
+            description_preview=row.raw_text[:200],
+            similarity_score=round(max(0.0, min(1.0, float(row.similarity_score))), 4),
+        )
+        for row in rows.fetchall()
+    ]
+
+    return RecommendResponse(
+        query=str(job_id),
+        results=results,
+        model_version=continual_learner.get_model_version(),
+    )

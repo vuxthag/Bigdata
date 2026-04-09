@@ -6,5 +6,6 @@ export const cvsApi = {
       headers: { 'Content-Type': 'multipart/form-data' },
     }),
   list: () => apiClient.get('/cvs'),
+  get: (cvId) => apiClient.get(`/cvs/${cvId}`),
   delete: (cvId) => apiClient.delete(`/cvs/${cvId}`),
 }

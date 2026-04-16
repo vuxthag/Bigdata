@@ -95,8 +95,6 @@ python -m crawler.main --source all --pages 1 --no-embed
 ```
 
 **Automated crawling** runs every 10 minutes via APScheduler (starts with FastAPI):
-- ITviec starts immediately
-- TopCV starts 3 minutes after ITviec
 - VietnamWorks starts 6 minutes after ITviec
 
 ---

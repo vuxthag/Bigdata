@@ -21,6 +21,9 @@ from app.config import settings
 from app.database import AsyncSessionLocal, init_db
 from app.routers import analytics, auth, cvs, jobs, recommend, users
 from app.routers import crawler as crawler_router
+from app.routers import candidate_applications, employer_applications, candidate_analytics
+from app.routers import employer_company, employer_jobs, employer_ranking, employer_analytics
+from app.routers import system_analytics, crawler_analytics
 
 logging.basicConfig(
     level=logging.INFO,
@@ -50,7 +53,7 @@ async def _check_and_retrain():
 
 
 async def _seed_data():
-    """Seed training_data.csv into the database if no jobs exist."""
+    """Seed new_training_data.csv (or legacy training_data.csv) into the DB if no jobs exist."""
     import pandas as pd
     from sqlalchemy import func, select
 
@@ -71,8 +74,24 @@ async def _seed_data():
 
         logger.info(f"[Seed] Loading seed data from {seed_path}...")
         try:
-            df = pd.read_csv(seed_path)
-            df = df[["position_title", "job_description"]].dropna().reset_index(drop=True)
+            df = pd.read_csv(seed_path, encoding="utf-8-sig")
+
+            # ── Support both old and new CSV schemas ─────────────────────────
+            # New schema (new_training_data.csv): title, description, raw_text, ...
+            # Old schema (training_data.csv):     position_title, job_description
+            if "title" in df.columns and "raw_text" in df.columns:
+                # New schema — use raw_text as the full description for embedding
+                df = df[["title", "raw_text", "description", "company", "job_url"]].copy()
+                df = df.rename(columns={"title": "position_title",
+                                        "raw_text": "job_description"})
+            elif "position_title" in df.columns and "job_description" in df.columns:
+                # Legacy schema
+                df = df[["position_title", "job_description"]].copy()
+            else:
+                logger.error(f"[Seed] Unrecognised CSV schema. Columns: {list(df.columns)}")
+                return
+
+            df = df.dropna(subset=["position_title", "job_description"]).reset_index(drop=True)
         except Exception as e:
             logger.error(f"[Seed] Failed to load CSV: {e}")
             return
@@ -96,6 +115,8 @@ async def _seed_data():
                 description=descriptions[i],
                 cleaned_description=cleaned_texts[i],
                 embedding=embeddings[i].tolist(),
+                company=df["company"].iloc[i] if "company" in df.columns else None,
+                link=df["job_url"].iloc[i] if "job_url" in df.columns else None,
                 source="seed",
             ))
 
@@ -180,6 +201,23 @@ app.include_router(jobs.router, prefix=PREFIX)
 app.include_router(recommend.router, prefix=PREFIX)
 app.include_router(analytics.router, prefix=PREFIX)
 app.include_router(crawler_router.router, prefix=PREFIX)
+
+# ── Phase 2 — Application Flow ────────────────────────────────────────────────
+app.include_router(candidate_applications.router, prefix=PREFIX)
+app.include_router(employer_applications.router, prefix=PREFIX)
+
+# ── Phase 3 — Employer Core System ────────────────────────────────────
+app.include_router(employer_company.router, prefix=PREFIX)
+app.include_router(employer_jobs.router, prefix=PREFIX)
+
+# ── Phase 4 — AI Ranking System ───────────────────────────────────
+app.include_router(employer_ranking.router, prefix=PREFIX)
+
+# ── Phase 5 — Full Analytics System ───────────────────────────────────
+app.include_router(candidate_analytics.router, prefix=PREFIX)
+app.include_router(employer_analytics.router, prefix=PREFIX)
+app.include_router(system_analytics.router, prefix=PREFIX)
+app.include_router(crawler_analytics.router, prefix=PREFIX)
 
 
 # ── Health check ──────────────────────────────────────────────────────────────

@@ -38,7 +38,7 @@ class Settings(BaseSettings):
     MAX_UPLOAD_SIZE_MB: int = 10
 
     # ── Data ──────────────────────────────────────────────────────────────────
-    SEED_DATA_PATH: str = "data/training_data.csv"
+    SEED_DATA_PATH: str = "data/new_training_data.csv"
 
     @property
     def max_upload_bytes(self) -> int:

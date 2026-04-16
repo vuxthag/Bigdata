@@ -18,6 +18,7 @@ from app.schemas.recommendation import (
     InteractionCreate,
     RecommendByCVRequest,
     RecommendByTitleRequest,
+    RecommendedJob,
     RecommendResponse,
 )
 from app.services.auth_service import get_current_user

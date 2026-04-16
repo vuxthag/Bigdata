@@ -29,7 +29,7 @@ from bs4 import BeautifulSoup
 
 from crawler.base_crawler import BaseCrawler, RawJob
 from crawler.config import crawler_settings
-from crawler.utils import build_session, clean_html
+from crawler.utils import build_session
 
 logger = logging.getLogger(__name__)
 

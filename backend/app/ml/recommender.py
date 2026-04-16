@@ -7,7 +7,6 @@ Used as fallback or for offline analysis.
 from __future__ import annotations
 
 import numpy as np
-import pandas as pd
 
 
 def cosine_similarity_matrix(embeddings: np.ndarray) -> np.ndarray:

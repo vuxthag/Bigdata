@@ -16,7 +16,7 @@ import logging
 from datetime import datetime, timezone
 from typing import Set, Tuple
 
-from sqlalchemy import select, text, update
+from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.job import Job

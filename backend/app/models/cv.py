@@ -3,6 +3,9 @@ models/cv.py
 ============
 SQLAlchemy ORM model for the cvs table.
 Stores uploaded CV text and its Sentence-BERT embedding (384-dim vector).
+
+Phase 1 addition:
+  - applications relationship (a CV can be referenced by many applications)
 """
 from __future__ import annotations
 
@@ -14,7 +17,7 @@ from sqlalchemy import DateTime, ForeignKey, Integer, String, Text, func
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from app.database import Base
+from app.base import Base
 
 
 class CV(Base):
@@ -35,10 +38,15 @@ class CV(Base):
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
 
-    # Relationships
+    # Relationships — existing
     user: Mapped["User"] = relationship("User", back_populates="cvs")
     interactions: Mapped[list["UserInteraction"]] = relationship(
         "UserInteraction", back_populates="cv"
+    )
+
+    # Relationships — Phase 1
+    applications: Mapped[list["Application"]] = relationship(
+        "Application", back_populates="cv"
     )
 
     def __repr__(self) -> str:

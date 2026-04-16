@@ -7,4 +7,10 @@ export const analyticsApi = {
   similarity: () => apiClient.get('/analytics/similarity'),
   activity: () => apiClient.get('/analytics/activity'),
   topJobs: () => apiClient.get('/analytics/top-jobs'),
+  
+  // Phase 5 Additions
+  candidate: () => apiClient.get('/candidate/analytics'),
+  employer: () => apiClient.get('/employer/analytics'),
+  system: () => apiClient.get('/system/analytics'),
+  crawler: () => apiClient.get('/crawler/analytics'),
 }

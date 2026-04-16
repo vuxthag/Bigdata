@@ -1,14 +1,18 @@
 """
 services/recommendation_service.py
 ====================================
-Core recommendation logic using pgvector cosine distance operator.
+Core recommendation logic.
+
+Phase 4 upgrade: recommend_by_cv() now delegates to ranking_service for
+multi-signal scoring (cosine + skill_overlap + interaction_bonus + yoe_match).
+Response schema is unchanged — similarity_score is the composite final_score.
 """
 from __future__ import annotations
 
 import uuid
 from typing import List
 
-from sqlalchemy import func, select, text
+from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.cv import CV
@@ -24,15 +28,42 @@ async def recommend_by_cv(
     top_n: int = 5,
 ) -> List[RecommendedJob]:
     """
-    Recommend top-N jobs most similar to a given CV using pgvector cosine distance.
+    Recommend top-N jobs most similar to a given CV.
+
+    Phase 4: uses multi-signal AI ranking (cosine + skill + interaction + yoe).
+    Falls back to pure cosine if ranking_service fails.
     """
-    # Fetch CV with its embedding
+    try:
+        from app.services.ranking_service import rank_jobs_for_candidate
+        ranked = await rank_jobs_for_candidate(cv_id=cv_id, db=db, top_n=top_n)
+        return [
+            RecommendedJob(
+                job_id=r.job_id,
+                position_title=r.position_title,
+                description_preview=r.description_preview,
+                similarity_score=r.final_score,   # composite score in [0, 1]
+            )
+            for r in ranked
+        ]
+    except Exception as exc:
+        import logging
+        logging.getLogger(__name__).warning(
+            f"[Recommend] Multi-signal ranking failed, falling back to cosine: {exc}"
+        )
+        return await _recommend_by_cv_cosine(cv_id, db, top_n)
+
+
+async def _recommend_by_cv_cosine(
+    cv_id: uuid.UUID,
+    db: AsyncSession,
+    top_n: int = 5,
+) -> List[RecommendedJob]:
+    """Fallback: pure pgvector cosine similarity (original implementation)."""
     result = await db.execute(select(CV).where(CV.id == cv_id))
     cv = result.scalar_one_or_none()
     if cv is None or cv.embedding is None:
         return []
 
-    # Use pgvector <=> cosine distance operator (smaller = more similar)
     query = text(
         """
         SELECT id, position_title, description,
@@ -56,6 +87,7 @@ async def recommend_by_cv(
         )
         for row in jobs
     ]
+
 
 
 async def recommend_by_title(

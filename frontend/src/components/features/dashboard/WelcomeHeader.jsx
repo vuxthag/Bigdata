@@ -12,10 +12,10 @@ export default function WelcomeHeader({ user, modelVersion }) {
   return (
     <div className="flex items-center justify-between">
       <div>
-        <h2 className="text-2xl sm:text-3xl font-bold text-white">
+        <h2 className="text-2xl sm:text-3xl font-bold text-slate-900">
           {greeting()}, {user?.full_name?.split(' ').slice(-1)[0] || 'bạn'} 👋
         </h2>
-        <p className="text-slate-400 text-sm mt-1.5">Đây là tổng quan hoạt động của bạn hôm nay</p>
+        <p className="text-slate-500 text-sm mt-1.5">Đây là tổng quan hoạt động của bạn hôm nay</p>
       </div>
       <span className="badge-brand text-xs flex items-center gap-1.5">
         <Cpu className="w-3 h-3" />

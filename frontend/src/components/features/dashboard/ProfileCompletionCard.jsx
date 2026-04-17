@@ -1,7 +1,7 @@
 import React from 'react'
 import { Link } from 'react-router-dom'
 import { User, CheckCircle, ArrowRight } from 'lucide-react'
-import SectionCard from '../../components/layout/SectionCard'
+import SectionCard from '../../layout/SectionCard'
 
 export default function ProfileCompletionCard({ profileFields, completionPct }) {
   return (
@@ -17,7 +17,7 @@ export default function ProfileCompletionCard({ profileFields, completionPct }) 
               d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
           </svg>
           <div className="absolute inset-0 flex items-center justify-center">
-            <span className="text-white font-bold text-sm">{completionPct}%</span>
+            <span className="text-slate-900 font-bold text-sm">{completionPct}%</span>
           </div>
         </div>
         <div className="flex-1">
@@ -27,7 +27,7 @@ export default function ProfileCompletionCard({ profileFields, completionPct }) 
                 ? <CheckCircle className="w-3.5 h-3.5 text-emerald-400" />
                 : <div className="w-3.5 h-3.5 rounded-full border border-slate-600" />
               }
-              <span className={`text-xs ${done ? 'text-slate-400' : 'text-slate-500'}`}>{field}</span>
+              <span className={`text-xs ${done ? 'text-slate-500' : 'text-slate-500'}`}>{field}</span>
             </div>
           ))}
         </div>

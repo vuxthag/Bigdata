@@ -8,10 +8,10 @@ export default function PageContainer({ title, subtitle, badge, badgeIcon: Badge
         <div className="flex items-start justify-between gap-4">
           <div>
             {title && (
-              <h2 className="text-2xl sm:text-3xl font-bold text-white">{title}</h2>
+              <h2 className="text-2xl sm:text-3xl font-bold text-slate-900">{title}</h2>
             )}
             {subtitle && (
-              <p className="text-slate-400 text-sm mt-1.5">{subtitle}</p>
+              <p className="text-slate-600 text-sm mt-1.5">{subtitle}</p>
             )}
           </div>
           <div className="flex items-center gap-3 flex-shrink-0">

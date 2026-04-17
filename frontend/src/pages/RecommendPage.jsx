@@ -1,29 +1,21 @@
 import React, { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useSearchParams } from 'react-router-dom'
-import { Sparkles } from 'lucide-react'
+import { Sparkles, CheckCircle2 } from 'lucide-react'
 import { cvsApi } from '../api/cvs'
-import { jobsApi } from '../api/jobs'
 import { recommendApi } from '../api/recommend'
 
 import PageContainer from '../components/layout/PageContainer'
 import SectionCard from '../components/layout/SectionCard'
-import SuggestionTabs from './ai/SuggestionTabs'
 import CVSelector from './ai/CVSelector'
-import ResultSlider from './ai/ResultSlider'
 import SuggestionButton from './ai/SuggestionButton'
 import JobResultsList from './ai/JobResultsList'
-import CandidateResultsList from './ai/CandidateResultsList'
 
 export default function RecommendPage() {
   const [searchParams] = useSearchParams()
   const initialCvId = searchParams.get('cv_id') || ''
 
-  const [activeTab, setActiveTab] = useState(initialCvId ? 'cv' : 'cv')
   const [selectedCvId, setSelectedCvId] = useState(initialCvId)
-  const [selectedJobId, setSelectedJobId] = useState('')
-  const [jobTitle, setJobTitle] = useState('')
-  const [topN, setTopN] = useState(5)
   const [results, setResults] = useState(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -32,25 +24,21 @@ export default function RecommendPage() {
     queryKey: ['cvs'],
     queryFn: () => cvsApi.list().then(r => r.data),
   })
-  const { data: jobList } = useQuery({
-    queryKey: ['jobs-all'],
-    queryFn: () => jobsApi.list({ page_size: 100 }).then(r => r.data),
-  })
 
   const handleSearch = async () => {
     setError('')
     setLoading(true)
     setResults(null)
+    
     try {
-      let res
-      if (activeTab === 'cv') {
-        if (!selectedCvId) { setError('Vui lòng chọn CV'); setLoading(false); return }
-        res = await recommendApi.byCV({ cv_id: selectedCvId, top_n: topN })
-      } else {
-        if (!jobTitle.trim() && !selectedJobId) { setError('Vui lòng chọn vị trí hoặc nhập chức danh'); setLoading(false); return }
-        res = await recommendApi.byTitle({ job_title: jobTitle || selectedJobId, top_n: topN })
+      if (!selectedCvId) { 
+        setError('Vui lòng chọn CV của bạn trước khi tìm việc.'); 
+        setLoading(false); 
+        return; 
       }
-      setResults({ ...res.data, tab: activeTab })
+      
+      const res = await recommendApi.byCV({ cv_id: selectedCvId, top_n: 5 })
+      setResults(res.data)
     } catch (e) {
       setError(e.message)
     } finally {
@@ -58,93 +46,77 @@ export default function RecommendPage() {
     }
   }
 
-  const handleTabChange = (key) => {
-    setActiveTab(key)
-    setResults(null)
-  }
-
-  const handleJobChange = (value) => {
-    setSelectedJobId(value)
-    if (value) setJobTitle('')
-  }
-
-  const handleJobTitleChange = (value) => {
-    setJobTitle(value)
-    if (value) setSelectedJobId('')
-  }
-
   return (
     <PageContainer
       title="AI Gợi ý"
-      subtitle="AI phân tích và gợi ý việc làm phù hợp nhất với bạn"
+      subtitle="AI phân tích CV của bạn và gợi ý TOP 5 việc làm phù hợp nhất (độ tương thích > 50%)"
     >
       {/* ── Search Controls ── */}
       <SectionCard>
         <div className="space-y-5">
-          <SuggestionTabs activeTab={activeTab} onTabChange={handleTabChange} />
-
           <CVSelector
-            activeTab={activeTab}
             selectedCvId={selectedCvId}
             onCvChange={setSelectedCvId}
             cvList={cvList}
-            selectedJobId={selectedJobId}
-            onJobChange={handleJobChange}
-            jobList={jobList}
-            jobTitle={jobTitle}
-            onJobTitleChange={handleJobTitleChange}
-            onKeyDown={e => e.key === 'Enter' && handleSearch()}
           />
 
-          <ResultSlider topN={topN} onChange={setTopN} />
-
           {error && (
-            <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-3 text-red-400 text-sm">
-              {error}
+            <div className="bg-red-50 border border-red-200 rounded-xl p-3 text-red-500 text-sm flex items-center gap-2">
+              <span>{error}</span>
             </div>
           )}
 
-          <SuggestionButton loading={loading} activeTab={activeTab} onClick={handleSearch} />
+          <SuggestionButton loading={loading} activeTab="cv" onClick={handleSearch} />
         </div>
       </SectionCard>
 
       {/* ── Results ── */}
-      {results && (
+      {results && results.results && (
         <div className="space-y-6">
           {/* Results Header */}
           <div className="flex items-center justify-between">
-            <h3 className="text-white font-semibold flex items-center gap-2">
+            <h3 className="text-slate-900 font-semibold flex items-center gap-2">
               <Sparkles className="w-4 h-4 text-brand-400" />
-              Kết quả cho: <span className="gradient-text">"{results.query?.slice(0, 40)}"</span>
+              Kết quả cho CV: <span className="gradient-text">{cvList?.items?.find(c => c.id === selectedCvId)?.filename || "CV đã chọn"}</span>
             </h3>
-            <span className="badge-brand text-xs">{results.results?.length || 0} gợi ý</span>
+            <span className="badge-brand text-xs">{results.results.length} công việc</span>
           </div>
 
-          {/* Summary Stats */}
-          <div className="grid grid-cols-3 gap-4">
-            <SectionCard className="text-center">
-              <p className="text-2xl font-bold text-white">{results.results?.length || 0}</p>
-              <p className="text-slate-500 text-xs mt-1">{activeTab === 'cv' ? 'Việc làm' : 'Ứng viên'}</p>
-            </SectionCard>
-            <SectionCard className="text-center">
-              <p className="text-2xl font-bold text-emerald-400">
-                {results.results?.filter(r => r.similarity_score >= 0.8).length || 0}
-              </p>
-              <p className="text-slate-500 text-xs mt-1">Rất phù hợp</p>
-            </SectionCard>
-            <SectionCard className="text-center">
-              <p className="text-2xl font-bold text-brand-400">
-                {results.results?.[0]?.similarity_score ? `${(results.results[0].similarity_score * 100).toFixed(0)}%` : '—'}
-              </p>
-              <p className="text-slate-500 text-xs mt-1">Điểm cao nhất</p>
-            </SectionCard>
-          </div>
+          {results.results.length > 0 ? (
+            <>
+              {/* Summary Stats */}
+              <div className="grid grid-cols-3 gap-4">
+                <SectionCard className="text-center">
+                  <p className="text-2xl font-bold text-slate-900">{results.results.length}</p>
+                  <p className="text-slate-500 text-xs mt-1">Việc làm phù hợp</p>
+                </SectionCard>
+                <SectionCard className="text-center">
+                  <p className="text-2xl font-bold text-emerald-500">
+                    {results.results.filter(r => r.similarity_score >= 0.8).length}
+                  </p>
+                  <p className="text-slate-500 text-xs mt-1">Độ phù hợp rất cao ({'>'}80%)</p>
+                </SectionCard>
+                <SectionCard className="text-center">
+                  <p className="text-2xl font-bold text-brand-500">
+                    {results.results[0]?.similarity_score ? `${(results.results[0].similarity_score * 100).toFixed(0)}%` : '—'}
+                  </p>
+                  <p className="text-slate-500 text-xs mt-1">Điểm cao nhất</p>
+                </SectionCard>
+              </div>
 
-          {/* Result Cards */}
-          {(activeTab === 'cv' || results.tab === 'cv') ? (
-            <JobResultsList results={results.results || []} cvId={activeTab === 'cv' ? selectedCvId : null} />
+              {/* Result Cards */}
+              <JobResultsList results={results.results} cvId={selectedCvId} />
+            </>
           ) : (
-            <CandidateResultsList results={results.results || []} />
+            <SectionCard className="text-center py-10">
+              <div className="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center mx-auto mb-3">
+                <CheckCircle2 className="w-6 h-6 text-slate-400" />
+              </div>
+              <h3 className="text-sm font-semibold text-slate-800">Không tìm thấy công việc phù hợp</h3>
+              <p className="text-xs text-slate-500 mt-1 max-w-sm mx-auto">
+                Rất tiếc, chưa có công việc nào trong hệ thống vượt qua mức độ tương thích 50% so với kỹ năng trong CV của bạn. Hãy thử cập nhật thêm kỹ năng vào CV.
+              </p>
+            </SectionCard>
           )}
         </div>
       )}

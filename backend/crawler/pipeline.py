@@ -151,15 +151,6 @@ class CrawlerPipeline:
                 logger.error(f"[Crawler] 403 blocked on page {page}: {pe}")
                 result.errors += 1
                 _log_json(level="error", event="crawl_blocked_403", source=source, page=page)
-                try:
-                    from crawler.alerts import send_alert
-                    send_alert(
-                        f"Crawler BLOCKED by {source} (HTTP 403) on page {page}. "
-                        "Please check immediately.",
-                        level="critical",
-                    )
-                except Exception:
-                    pass
                 break  # stop fetching more pages for this source
             except Exception as exc:
                 logger.error(f"[Crawler] Error fetching list page {page}: {exc}")
@@ -190,15 +181,6 @@ class CrawlerPipeline:
             error_rate = result.errors / max(len(new_stubs), 1)
             if error_rate > 0.5:
                 _log_json(level="warning", event="high_error_rate", source=source, error_rate=round(error_rate, 2))
-                try:
-                    from crawler.alerts import send_alert
-                    send_alert(
-                        f"High error rate for {source}: {result.errors}/{len(new_stubs)} jobs failed "
-                        f"({error_rate:.0%}). Check crawler health.",
-                        level="warning",
-                    )
-                except Exception:
-                    pass
 
         # ── Commit ─────────────────────────────────────────────────────────
         try:

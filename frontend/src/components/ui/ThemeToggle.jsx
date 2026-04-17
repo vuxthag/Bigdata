@@ -25,7 +25,7 @@ export default function ThemeToggle({ className = '' }) {
   return (
     <button
       onClick={() => setDark(!dark)}
-      className={`p-2 rounded-lg hover:bg-white/10 text-slate-400 hover:text-white transition-all duration-200 ${className}`}
+      className={`p-2 rounded-lg hover:bg-slate-200 text-slate-500 hover:text-slate-900 transition-all duration-200 ${className}`}
       title={dark ? 'Chuyển sang sáng' : 'Chuyển sang tối'}
     >
       {dark ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}

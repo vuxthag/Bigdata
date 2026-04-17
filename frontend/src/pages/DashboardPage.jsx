@@ -5,12 +5,12 @@ import { jobsApi } from '../api/jobs'
 import useAuthStore from '../store/authStore'
 
 import PageContainer from '../components/layout/PageContainer'
-import WelcomeHeader from './dashboard/WelcomeHeader'
-import StatsGrid from './dashboard/StatsGrid'
-import ProfileCompletionCard from './dashboard/ProfileCompletionCard'
-import AISuggestionCard from './dashboard/AISuggestionCard'
-import SavedJobsCard from './dashboard/SavedJobsCard'
-import QuickActionsCard from './dashboard/QuickActionsCard'
+import WelcomeHeader from '../components/features/dashboard/WelcomeHeader'
+import StatsGrid from '../components/features/dashboard/StatsGrid'
+import ProfileCompletionCard from '../components/features/dashboard/ProfileCompletionCard'
+import AISuggestionCard from '../components/features/dashboard/AISuggestionCard'
+import SavedJobsCard from '../components/features/dashboard/SavedJobsCard'
+import QuickActionsCard from '../components/features/dashboard/QuickActionsCard'
 
 /* ── Helpers ───────────────────────────────── */
 function getSavedJobs() {

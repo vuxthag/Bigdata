@@ -22,7 +22,7 @@ export default function SectionCard({
         shadow-lg shadow-black/10
         transition-all duration-300
         ${hover ? 'hover:border-[rgba(255,255,255,0.15)] hover:shadow-brand-500/5' : ''}
-        ${gradient ? `bg-gradient-to-br ${gradientColor}` : ''}
+        ${gradient ? `bg-slate-50radient-to-br ${gradientColor}` : ''}
         ${noPadding ? '' : 'p-6'}
         ${className}
       `}
@@ -30,7 +30,7 @@ export default function SectionCard({
       {/* Card Header */}
       {(title || headerRight) && (
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-white font-semibold flex items-center gap-2">
+          <h3 className="text-slate-900 font-semibold flex items-center gap-2">
             {TitleIcon && <TitleIcon className={`w-4 h-4 ${titleIconColor}`} />}
             {title}
           </h3>

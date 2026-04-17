@@ -2,22 +2,22 @@ import React from 'react'
 
 const variants = {
   primary: `
-    bg-gradient-to-r from-brand-600 to-purple-600
+    bg-slate-50radient-to-r from-brand-600 to-purple-600
     hover:from-brand-500 hover:to-purple-500
-    text-white font-semibold
+    text-slate-900 font-semibold
     shadow-lg shadow-brand-600/30
     hover:shadow-brand-500/40
     hover:-translate-y-0.5
   `,
   secondary: `
-    bg-white/5 hover:bg-white/10
-    border border-white/10 hover:border-white/20
-    text-slate-300 hover:text-white font-medium
+    bg-slate-100 hover:bg-slate-200
+    border border-slate-200 hover:border-slate-300
+    text-slate-600 hover:text-slate-900 font-medium
   `,
   accent: `
-    bg-gradient-to-r from-accent-500 to-accent-600
+    bg-slate-50radient-to-r from-accent-500 to-accent-600
     hover:from-accent-400 hover:to-accent-500
-    text-white font-semibold
+    text-slate-900 font-semibold
     shadow-lg shadow-accent-500/30
     hover:shadow-accent-400/40
     hover:-translate-y-0.5

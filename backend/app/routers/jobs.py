@@ -30,8 +30,8 @@ async def list_jobs(
     db: AsyncSession = Depends(get_db),
 ):
     """List active jobs with optional title search and pagination."""
-    query = select(Job).where(Job.is_active == True)
-    count_query = select(func.count(Job.id)).where(Job.is_active == True)
+    query = select(Job).where(Job.is_active)
+    count_query = select(func.count(Job.id)).where(Job.is_active)
 
     if search:
         query = query.where(Job.position_title.ilike(f"%{search}%"))
@@ -55,7 +55,7 @@ async def list_jobs(
 @router.get("/{job_id}", response_model=JobResponse)
 async def get_job(job_id: uuid.UUID, db: AsyncSession = Depends(get_db)):
     """Get a single job by ID."""
-    result = await db.execute(select(Job).where(Job.id == job_id, Job.is_active == True))
+    result = await db.execute(select(Job).where(Job.id == job_id, Job.is_active))
     job = result.scalar_one_or_none()
     if job is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Job not found")

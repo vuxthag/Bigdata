@@ -16,11 +16,11 @@ export default function CompanyCard({ company }) {
   return (
     <Link
       to={`/companies/${id || name}`}
-      className="glass-card p-5 hover:border-brand-500/20 hover:-translate-y-1 transition-all duration-300 group block"
+      className="glass-card p-5 hover:border-slate-200rand-500/20 hover:-translate-y-1 transition-all duration-300 group block"
     >
       <div className="flex items-start gap-4">
         {/* Logo */}
-        <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-brand-500/20 to-purple-500/20 border border-brand-500/20 flex items-center justify-center flex-shrink-0">
+        <div className="w-12 h-12 rounded-xl bg-slate-50radient-to-br from-brand-500/20 to-purple-500/20 border border-slate-200rand-500/20 flex items-center justify-center flex-shrink-0">
           {logo ? (
             <img src={logo} alt={name} className="w-8 h-8 rounded-lg object-cover" />
           ) : (
@@ -29,7 +29,7 @@ export default function CompanyCard({ company }) {
         </div>
 
         <div className="flex-1 min-w-0">
-          <h3 className="text-white font-semibold text-sm group-hover:text-brand-400 transition-colors truncate">
+          <h3 className="text-slate-900 font-semibold text-sm group-hover:text-brand-400 transition-colors truncate">
             {name}
           </h3>
           {industry && (

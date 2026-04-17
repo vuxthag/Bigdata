@@ -33,23 +33,23 @@ export default function SavedJobsPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-2xl font-bold text-white flex items-center gap-2">
+        <h2 className="text-2xl font-bold text-slate-900 flex items-center gap-2">
           <Bookmark className="w-6 h-6 text-brand-400" />
           Việc đã lưu
         </h2>
-        <p className="text-slate-400 text-sm mt-1">Danh sách việc làm bạn đã đánh dấu ({savedIds.length})</p>
+        <p className="text-slate-500 text-sm mt-1">Danh sách việc làm bạn đã đánh dấu ({savedIds.length})</p>
       </div>
 
       {savedJobs.length > 0 ? (
         <div className="space-y-3">
           {savedJobs.map(job => (
-            <div key={job.id} className="glass-card p-5 hover:border-brand-500/20 transition-all duration-300 group">
+            <div key={job.id} className="glass-card p-5 hover:border-slate-200rand-500/20 transition-all duration-300 group">
               <div className="flex items-start gap-4">
-                <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-brand-500/20 to-purple-500/20 border border-brand-500/20 flex items-center justify-center flex-shrink-0">
+                <div className="w-11 h-11 rounded-xl bg-slate-50radient-to-br from-brand-500/20 to-purple-500/20 border border-slate-200rand-500/20 flex items-center justify-center flex-shrink-0">
                   <Building2 className="w-5 h-5 text-brand-400" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <Link to={`/jobs/${job.id}`} className="text-white font-semibold text-sm group-hover:text-brand-400 transition-colors">
+                  <Link to={`/jobs/${job.id}`} className="text-slate-900 font-semibold text-sm group-hover:text-brand-400 transition-colors">
                     {job.position_title}
                   </Link>
                   <p className="text-slate-500 text-xs mt-0.5">{job.company_name || 'JobMatch AI'}</p>
@@ -62,7 +62,7 @@ export default function SavedJobsPage() {
                 <div className="flex flex-col items-end gap-2">
                   <button
                     onClick={() => handleRemove(job.id)}
-                    className="p-2 rounded-lg hover:bg-red-500/10 text-slate-500 hover:text-red-400 transition-colors"
+                    className="p-2 rounded-lg hover:bg-slate-50ed-500/10 text-slate-500 hover:text-red-400 transition-colors"
                     title="Bỏ lưu"
                   >
                     <Trash2 className="w-4 h-4" />
@@ -78,7 +78,7 @@ export default function SavedJobsPage() {
       ) : (
         <div className="glass-card p-16 text-center">
           <Bookmark className="w-12 h-12 text-slate-600 mx-auto mb-4" />
-          <h3 className="text-white font-semibold text-lg mb-2">Chưa lưu việc làm nào</h3>
+          <h3 className="text-slate-900 font-semibold text-lg mb-2">Chưa lưu việc làm nào</h3>
           <p className="text-slate-500 text-sm mb-6">Hãy duyệt qua danh sách việc làm và nhấn lưu để xem lại sau.</p>
           <Link to="/jobs" className="btn-primary">
             <Briefcase className="w-4 h-4" /> Duyệt việc làm

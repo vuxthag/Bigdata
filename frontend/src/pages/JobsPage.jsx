@@ -6,7 +6,7 @@ import {
   ChevronLeft, ChevronRight, SlidersHorizontal, Wifi,
 } from 'lucide-react'
 import { jobsApi } from '../api/jobs'
-import JobCard from '../components/JobCard'
+import JobCard from '../components/features/jobs/JobCard'
 
 /* ── Helpers ───────────────────────────────── */
 function getSavedJobs() {
@@ -169,7 +169,7 @@ export default function JobsPage() {
         {/* ── Filters Sidebar ─────────────── */}
         <aside className={`w-64 flex-shrink-0 space-y-5 ${showFilters ? 'block' : 'hidden lg:block'}`}>
           <div className="glass-card p-5 space-y-5 sticky top-24">
-            <h3 className="text-white font-semibold text-sm flex items-center gap-2">
+            <h3 className="text-slate-900 font-semibold text-sm flex items-center gap-2">
               <SlidersHorizontal className="w-4 h-4 text-brand-400" />
               Bộ lọc
             </h3>
@@ -185,7 +185,7 @@ export default function JobsPage() {
                       onChange={() => { setJobType(t); setPage(1) }}
                       className="accent-brand-500"
                     />
-                    <span className="text-slate-400 text-sm group-hover:text-white transition-colors">{t}</span>
+                    <span className="text-slate-500 text-sm group-hover:text-slate-900 transition-colors">{t}</span>
                   </label>
                 ))}
               </div>
@@ -193,12 +193,12 @@ export default function JobsPage() {
 
             {/* Remote toggle */}
             <div className="flex items-center justify-between">
-              <span className="text-slate-400 text-sm flex items-center gap-1.5">
+              <span className="text-slate-500 text-sm flex items-center gap-1.5">
                 <Wifi className="w-3.5 h-3.5" /> Remote
               </span>
               <button
                 onClick={() => { setRemoteOnly(!remoteOnly); setPage(1) }}
-                className={`w-10 h-5 rounded-full transition-colors relative ${remoteOnly ? 'bg-brand-500' : 'bg-dark-600'}`}
+                className={`w-10 h-5 rounded-full transition-colors relative ${remoteOnly ? 'bg-slate-50rand-500' : 'bg-dark-600'}`}
               >
                 <div className={`w-4 h-4 rounded-full bg-white absolute top-0.5 transition-transform ${remoteOnly ? 'translate-x-5' : 'translate-x-0.5'}`} />
               </button>
@@ -232,14 +232,14 @@ export default function JobsPage() {
         <div className="flex-1 min-w-0">
           {/* Results count */}
           <div className="flex items-center justify-between mb-4">
-            <p className="text-slate-400 text-sm">{filtered.length} việc làm</p>
+            <p className="text-slate-500 text-sm">{filtered.length} việc làm</p>
             <p className="text-slate-600 text-xs">Trang {page}/{totalPages}</p>
           </div>
 
           {isLoading ? (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {Array(4).fill(0).map((_, i) => (
-                <div key={i} className="glass-card p-5 animate-pulse h-40 bg-dark-700/50" />
+                <div key={i} className="glass-card p-5 animate-pulse h-40 bg-slate-1000" />
               ))}
             </div>
           ) : paginated.length > 0 ? (
@@ -284,8 +284,8 @@ export default function JobsPage() {
                     onClick={() => setPage(p)}
                     className={`w-9 h-9 rounded-lg text-sm font-medium transition-all ${
                       page === p
-                        ? 'bg-brand-600 text-white shadow-lg shadow-brand-600/20'
-                        : 'text-slate-400 hover:bg-white/5 hover:text-white'
+                        ? 'bg-slate-50rand-600 text-slate-900 shadow-lg shadow-brand-600/20'
+                        : 'text-slate-500 hover:bg-slate-100 hover:text-slate-900'
                     }`}
                   >
                     {p}

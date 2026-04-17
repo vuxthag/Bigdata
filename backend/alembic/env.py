@@ -35,14 +35,11 @@ from app.base import Base  # noqa: E402
 # ── Import every model so Base.metadata is fully populated ───────────────────
 # Order: no-FK tables first, then tables that reference them.
 from app.models.user import User                      # noqa: F401
-from app.models.cv import CV                          # noqa: F401
-from app.models.company import Company                # noqa: F401
-from app.models.job import Job                        # noqa: F401
-from app.models.interaction import UserInteraction    # noqa: F401
-from app.models.application import Application        # noqa: F401
+from app.models.cv import CV                          # noqa: F401  (→ users)
+from app.models.job import Job                        # noqa: F401  (→ users)
+from app.models.interaction import UserInteraction    # noqa: F401  (→ users, cvs, jobs)
 from app.models.model_version import ModelVersion     # noqa: F401
 from app.models.recommendation import Recommendation  # noqa: F401
-from app.models.analytics_log import AnalyticsLog    # noqa: F401
 from app.models.crawl_log import CrawlLog             # noqa: F401
 
 # ── Alembic Config ────────────────────────────────────────────────────────────

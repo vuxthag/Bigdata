@@ -2,31 +2,31 @@
 models/job.py
 =============
 SQLAlchemy ORM model for the job_descriptions table.
+Simplified for candidate-only platform — all jobs are crawled from VietnamWorks.
 
-Crawler-added fields (nullable, backward-compatible):
-  - company        : employer name string (legacy/crawler field)
-  - location       : job location string
+Fields:
+  - position_title : job title
+  - description    : full job description
+  - cleaned_description: preprocessed text for ML
+  - embedding      : SBERT vector (384-dim)
+  - company        : employer name string (from crawler)
+  - location       : job location
   - link           : canonical URL (unique) — dedup key for crawler
   - skills         : ARRAY of extracted skill strings
-  - updated_at     : last time the crawler refreshed this record
-
-Phase 1 additions (all nullable for backward compat):
-  - company_id     : FK → companies.id (proper company ownership)
-  - status         : draft | published | closed  (default: published)
-  - salary_min     : INT, minimum salary
-  - salary_max     : INT, maximum salary
-  - job_type       : e.g. full-time, part-time, contract, remote
-  - deadline       : DATE, application deadline
-  - applicant_count: INT, denormalized counter (updated by trigger/app)
+  - salary_min/max : salary range
+  - job_type       : full-time, part-time, remote, etc.
+  - source         : crawler source (vietnamworks, seed, manual)
+  - is_active      : soft delete flag
 """
 from __future__ import annotations
 
 import uuid
-from datetime import date, datetime
+from datetime import datetime
+from typing import TYPE_CHECKING
 
 from pgvector.sqlalchemy import Vector
 from sqlalchemy import (
-    Boolean, CheckConstraint, Date, DateTime, ForeignKey,
+    Boolean, DateTime, ForeignKey,
     Integer, String, Text, UniqueConstraint, func,
 )
 from sqlalchemy.dialects.postgresql import ARRAY, UUID
@@ -34,15 +34,14 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.base import Base
 
+if TYPE_CHECKING:
+    from app.models.interaction import UserInteraction
+
 
 class Job(Base):
     __tablename__ = "job_descriptions"
     __table_args__ = (
         UniqueConstraint("link", name="uq_job_link"),
-        CheckConstraint(
-            "status IN ('draft', 'published', 'closed')",
-            name="ck_job_status",
-        ),
     )
 
     id: Mapped[uuid.UUID] = mapped_column(
@@ -52,7 +51,7 @@ class Job(Base):
     description: Mapped[str] = mapped_column(Text, nullable=False)
     cleaned_description: Mapped[str | None] = mapped_column(Text, nullable=True)
     embedding: Mapped[list[float] | None] = mapped_column(Vector(384), nullable=True)
-    source: Mapped[str] = mapped_column(String(50), default="manual", nullable=False)
+    source: Mapped[str] = mapped_column(String(50), default="vietnamworks", nullable=False)
     created_by: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True),
         ForeignKey("users.id", ondelete="SET NULL"),
@@ -63,45 +62,24 @@ class Job(Base):
     )
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
 
-    # ── Crawler fields (nullable — existing rows unaffected) ──────────────────
+    # Crawler fields
     company: Mapped[str | None] = mapped_column(String(255), nullable=True, index=True)
     location: Mapped[str | None] = mapped_column(String(255), nullable=True)
-    link: Mapped[str | None] = mapped_column(Text, nullable=True)   # unique via __table_args__
+    link: Mapped[str | None] = mapped_column(Text, nullable=True)
     skills: Mapped[list[str] | None] = mapped_column(ARRAY(Text), nullable=True)
     updated_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True, onupdate=func.now()
     )
 
-    # ── Phase 1 fields (all nullable — backward-compatible) ───────────────────
-    company_id: Mapped[uuid.UUID | None] = mapped_column(
-        UUID(as_uuid=True),
-        ForeignKey("companies.id", ondelete="SET NULL"),
-        nullable=True,
-        index=True,
-    )
-    status: Mapped[str] = mapped_column(
-        String(20), default="published", server_default="published", nullable=False
-    )
+    # Optional metadata
     salary_min: Mapped[int | None] = mapped_column(Integer, nullable=True)
     salary_max: Mapped[int | None] = mapped_column(Integer, nullable=True)
     job_type: Mapped[str | None] = mapped_column(String(50), nullable=True)
-    deadline: Mapped[date | None] = mapped_column(Date, nullable=True)
-    applicant_count: Mapped[int] = mapped_column(
-        Integer, default=0, server_default="0", nullable=False
-    )
 
-    # Relationships — existing
+    # Relationships
     interactions: Mapped[list["UserInteraction"]] = relationship(
         "UserInteraction", back_populates="job"
     )
 
-    # Relationships — Phase 1
-    company_rel: Mapped["Company | None"] = relationship(
-        "Company", back_populates="jobs", foreign_keys=[company_id]
-    )
-    applications: Mapped[list["Application"]] = relationship(
-        "Application", back_populates="job", cascade="all, delete-orphan"
-    )
-
     def __repr__(self) -> str:
-        return f"<Job id={self.id} title={self.position_title} status={self.status}>"
+        return f"<Job id={self.id} title={self.position_title}>"

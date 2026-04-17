@@ -1,11 +1,7 @@
 """
 main.py
 =======
-FastAPI application entry point with lifespan context manager.
-Fixes:
-- @app.on_event deprecated → use lifespan
-- seed iterrows index mismatch fixed
-- emoji in logger removed (encoding safety)
+FastAPI application entry point — Candidate-Only Job Search Platform.
 """
 from __future__ import annotations
 
@@ -21,9 +17,6 @@ from app.config import settings
 from app.database import AsyncSessionLocal, init_db
 from app.routers import analytics, auth, cvs, jobs, recommend, users
 from app.routers import crawler as crawler_router
-from app.routers import candidate_applications, employer_applications, candidate_analytics
-from app.routers import employer_company, employer_jobs, employer_ranking, employer_analytics
-from app.routers import system_analytics, crawler_analytics
 
 logging.basicConfig(
     level=logging.INFO,
@@ -76,16 +69,11 @@ async def _seed_data():
         try:
             df = pd.read_csv(seed_path, encoding="utf-8-sig")
 
-            # ── Support both old and new CSV schemas ─────────────────────────
-            # New schema (new_training_data.csv): title, description, raw_text, ...
-            # Old schema (training_data.csv):     position_title, job_description
             if "title" in df.columns and "raw_text" in df.columns:
-                # New schema — use raw_text as the full description for embedding
                 df = df[["title", "raw_text", "description", "company", "job_url"]].copy()
                 df = df.rename(columns={"title": "position_title",
                                         "raw_text": "job_description"})
             elif "position_title" in df.columns and "job_description" in df.columns:
-                # Legacy schema
                 df = df[["position_title", "job_description"]].copy()
             else:
                 logger.error(f"[Seed] Unrecognised CSV schema. Columns: {list(df.columns)}")
@@ -97,7 +85,6 @@ async def _seed_data():
             return
 
         logger.info(f"[Seed] Encoding {len(df)} job descriptions with SBERT...")
-        # Use positional list to avoid iterrows index mismatch
         titles = df["position_title"].tolist()
         descriptions = df["job_description"].tolist()
         cleaned_texts = [clean_text(t) for t in descriptions]
@@ -125,10 +112,9 @@ async def _seed_data():
         logger.info(f"[Seed] Seeded {len(job_objects)} jobs successfully.")
 
 
-# ── Lifespan (replaces deprecated on_event) ───────────────────────────────────
+# ── Lifespan ──────────────────────────────────────────────────────────────────
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Application lifespan: startup logic runs before yield, shutdown after."""
     logger.info("[Startup] Initializing database...")
     await init_db()
 
@@ -154,8 +140,8 @@ async def lifespan(app: FastAPI):
         replace_existing=True,
     )
 
-    # Register all crawler jobs (ITviec, TopCV, VietnamWorks)
-    logger.info("[Startup] Registering job crawlers (all sources)...")
+    # VietnamWorks-only crawler
+    logger.info("[Startup] Registering VietnamWorks crawler...")
     try:
         from crawler.scheduler import register_crawler_jobs
         register_crawler_jobs(scheduler)
@@ -164,10 +150,9 @@ async def lifespan(app: FastAPI):
 
     scheduler.start()
 
-    logger.info("[Startup] Job Recommendation API v2.0 ready!")
+    logger.info("[Startup] Job Search Platform v3.0 ready!")
     yield
 
-    # Shutdown
     if scheduler.running:
         scheduler.shutdown(wait=False)
     logger.info("[Shutdown] API stopped.")
@@ -175,9 +160,9 @@ async def lifespan(app: FastAPI):
 
 # ── FastAPI app ───────────────────────────────────────────────────────────────
 app = FastAPI(
-    title="Job Recommendation API",
-    description="SBERT-powered job recommendation with continual learning",
-    version="2.0.0",
+    title="Job Search Platform API",
+    description="AI-powered job search and CV matching for candidates",
+    version="3.0.0",
     docs_url="/api/docs",
     redoc_url="/api/redoc",
     lifespan=lifespan,
@@ -194,30 +179,18 @@ app.add_middleware(
 
 # ── Routers ───────────────────────────────────────────────────────────────────
 PREFIX = "/api/v1"
-app.include_router(auth.router, prefix=PREFIX)
-app.include_router(users.router, prefix=PREFIX)
-app.include_router(cvs.router, prefix=PREFIX)
-app.include_router(jobs.router, prefix=PREFIX)
-app.include_router(recommend.router, prefix=PREFIX)
-app.include_router(analytics.router, prefix=PREFIX)
-app.include_router(crawler_router.router, prefix=PREFIX)
+ROUTERS = [
+    auth.router,
+    users.router,
+    cvs.router,
+    jobs.router,
+    recommend.router,
+    analytics.router,
+    crawler_router.router,
+]
 
-# ── Phase 2 — Application Flow ────────────────────────────────────────────────
-app.include_router(candidate_applications.router, prefix=PREFIX)
-app.include_router(employer_applications.router, prefix=PREFIX)
-
-# ── Phase 3 — Employer Core System ────────────────────────────────────
-app.include_router(employer_company.router, prefix=PREFIX)
-app.include_router(employer_jobs.router, prefix=PREFIX)
-
-# ── Phase 4 — AI Ranking System ───────────────────────────────────
-app.include_router(employer_ranking.router, prefix=PREFIX)
-
-# ── Phase 5 — Full Analytics System ───────────────────────────────────
-app.include_router(candidate_analytics.router, prefix=PREFIX)
-app.include_router(employer_analytics.router, prefix=PREFIX)
-app.include_router(system_analytics.router, prefix=PREFIX)
-app.include_router(crawler_analytics.router, prefix=PREFIX)
+for router in ROUTERS:
+    app.include_router(router, prefix=PREFIX)
 
 
 # ── Health check ──────────────────────────────────────────────────────────────

@@ -1,7 +1,7 @@
 import React from 'react'
 import { Link } from 'react-router-dom'
 import { Zap, Target, Search, Briefcase, ArrowRight } from 'lucide-react'
-import SectionCard from '../../components/layout/SectionCard'
+import SectionCard from '../../layout/SectionCard'
 
 const suggestions = [
   { icon: Target, text: 'Upload thêm CV để AI phân tích kỹ năng chính xác hơn', link: '/upload', color: 'brand' },
@@ -17,7 +17,7 @@ export default function AISuggestionCard() {
           <Link key={i} to={item.link}
             className={`flex items-center gap-3 p-3 rounded-xl bg-${item.color}-500/5 border border-${item.color}-500/10 hover:bg-${item.color}-500/10 transition-colors group`}>
             <item.icon className={`w-4 h-4 text-${item.color}-400`} />
-            <span className="text-slate-300 text-sm flex-1">{item.text}</span>
+            <span className="text-slate-600 text-sm flex-1">{item.text}</span>
             <ArrowRight className={`w-3 h-3 text-${item.color}-400 group-hover:translate-x-1 transition-transform`} />
           </Link>
         ))}

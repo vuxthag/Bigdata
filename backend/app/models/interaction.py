@@ -10,12 +10,18 @@ from __future__ import annotations
 import enum
 import uuid
 from datetime import datetime
+from typing import TYPE_CHECKING
 
 from sqlalchemy import Boolean, DateTime, Enum, Float, ForeignKey, func
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.base import Base
+
+if TYPE_CHECKING:
+    from app.models.cv import CV
+    from app.models.job import Job
+    from app.models.user import User
 
 
 class InteractionAction(str, enum.Enum):

@@ -78,15 +78,19 @@ async def _recommend_by_cv_cosine(
     rows = await db.execute(query, {"embedding": embedding_str, "limit": top_n})
     jobs = rows.fetchall()
 
-    return [
-        RecommendedJob(
-            job_id=row.id,
-            position_title=row.position_title,
-            description_preview=row.description[:200],
-            similarity_score=round(max(0.0, min(1.0, float(row.similarity_score))), 4),
-        )
-        for row in jobs
-    ]
+    results = []
+    for row in jobs:
+        score = round(max(0.0, min(1.0, float(row.similarity_score))), 4)
+        if score >= 0.5:
+            results.append(
+                RecommendedJob(
+                    job_id=row.id,
+                    position_title=row.position_title,
+                    description_preview=row.description[:200],
+                    similarity_score=score,
+                )
+            )
+    return results
 
 
 

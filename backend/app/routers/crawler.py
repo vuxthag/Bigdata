@@ -29,7 +29,7 @@ from app.models.crawl_log import CrawlLog
 
 router = APIRouter(prefix="/crawler", tags=["Crawler Monitoring"])
 
-KNOWN_SOURCES = ["itviec", "topcv", "vietnamworks"]
+KNOWN_SOURCES = ["vietnamworks"]
 
 
 @router.get("/stats", summary="Crawler stats per source")

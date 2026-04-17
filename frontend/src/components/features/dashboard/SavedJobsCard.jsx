@@ -1,7 +1,7 @@
 import React from 'react'
 import { Link } from 'react-router-dom'
 import { Bookmark, Send, Building2, ArrowRight, Clock } from 'lucide-react'
-import SectionCard from '../../components/layout/SectionCard'
+import SectionCard from '../../layout/SectionCard'
 
 export default function SavedJobsCard({ savedJobs, savedJobIds, appliedJobsList }) {
   return (
@@ -23,12 +23,12 @@ export default function SavedJobsCard({ savedJobs, savedJobIds, appliedJobsList 
           <div className="space-y-3">
             {savedJobs.map(job => (
               <Link key={job.id} to={`/jobs/${job.id}`}
-                className="flex items-center gap-3 p-3 rounded-xl hover:bg-white/5 transition-colors group">
-                <div className="w-9 h-9 rounded-lg bg-brand-500/10 border border-brand-500/20 flex items-center justify-center flex-shrink-0">
+                className="flex items-center gap-3 p-3 rounded-xl hover:bg-slate-100 transition-colors group">
+                <div className="w-9 h-9 rounded-lg bg-slate-50rand-500/10 border border-slate-200rand-500/20 flex items-center justify-center flex-shrink-0">
                   <Building2 className="w-4 h-4 text-brand-400" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-white text-sm font-medium truncate">{job.position_title}</p>
+                  <p className="text-slate-900 text-sm font-medium truncate">{job.position_title}</p>
                   <p className="text-slate-500 text-xs">{job.company_name || 'JobMatch AI'}</p>
                 </div>
                 <ArrowRight className="w-3 h-3 text-slate-600 group-hover:text-brand-400 transition-colors" />
@@ -57,12 +57,12 @@ export default function SavedJobsCard({ savedJobs, savedJobIds, appliedJobsList 
           <div className="space-y-3">
             {appliedJobsList.slice(0, 3).map((app, i) => (
               <Link key={i} to={`/jobs/${app.id}`}
-                className="flex items-center gap-3 p-3 rounded-xl hover:bg-white/5 transition-colors group">
+                className="flex items-center gap-3 p-3 rounded-xl hover:bg-slate-100 transition-colors group">
                 <div className="w-9 h-9 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center flex-shrink-0">
                   <Send className="w-4 h-4 text-emerald-400" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-white text-sm font-medium truncate">{app.title}</p>
+                  <p className="text-slate-900 text-sm font-medium truncate">{app.title}</p>
                   <p className="text-slate-500 text-xs flex items-center gap-1">
                     <Clock className="w-3 h-3" />
                     {new Date(app.date).toLocaleDateString('vi-VN')}

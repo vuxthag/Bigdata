@@ -1,7 +1,7 @@
 import React from 'react'
 import { Link } from 'react-router-dom'
 import { Building2, MapPin, Clock, ArrowRight, Bookmark, BookmarkCheck, DollarSign } from 'lucide-react'
-import SimilarityBadge from './SimilarityBadge'
+import SimilarityBadge from '../../ui/SimilarityBadge'
 
 export default function JobCard({
   job,
@@ -28,10 +28,10 @@ export default function JobCard({
   const desc = description_preview || description || ''
 
   return (
-    <div className="glass-card p-5 hover:border-brand-500/20 hover:-translate-y-0.5 transition-all duration-300 group">
+    <div className="glass-card p-5 hover:border-slate-200rand-500/20 hover:-translate-y-0.5 transition-all duration-300 group">
       <div className="flex items-start gap-4">
         {/* Company Logo placeholder */}
-        <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-brand-500/20 to-purple-500/20 border border-brand-500/20 flex items-center justify-center flex-shrink-0">
+        <div className="w-11 h-11 rounded-xl bg-slate-50radient-to-br from-brand-500/20 to-purple-500/20 border border-slate-200rand-500/20 flex items-center justify-center flex-shrink-0">
           <Building2 className="w-5 h-5 text-brand-400" />
         </div>
 
@@ -39,7 +39,7 @@ export default function JobCard({
           {/* Title */}
           <Link
             to={`/jobs/${jobId}`}
-            className="text-white font-semibold text-sm group-hover:text-brand-400 transition-colors line-clamp-1 block"
+            className="text-slate-900 font-semibold text-sm group-hover:text-brand-400 transition-colors line-clamp-1 block"
           >
             {position_title}
           </Link>
@@ -85,7 +85,7 @@ export default function JobCard({
           {onSave && (
             <button
               onClick={(e) => { e.preventDefault(); isSaved ? onRemove?.(jobId) : onSave(jobId) }}
-              className="p-1.5 rounded-lg hover:bg-white/10 text-slate-500 hover:text-brand-400 transition-colors"
+              className="p-1.5 rounded-lg hover:bg-slate-200 text-slate-500 hover:text-brand-400 transition-colors"
               title={isSaved ? 'Bỏ lưu' : 'Lưu việc làm'}
             >
               {isSaved
@@ -105,7 +105,7 @@ export default function JobCard({
       )}
 
       {/* Footer */}
-      <div className="flex items-center justify-between mt-4 pt-3 border-t border-white/5">
+      <div className="flex items-center justify-between mt-4 pt-3 border-t border-slate-200">
         <span className="text-slate-600 text-xs flex items-center gap-1">
           <Clock className="w-3 h-3" />
           Đăng gần đây

@@ -49,25 +49,25 @@ export default function ProfilePage() {
     <div className="space-y-6 animate-slide-up max-w-2xl">
       {/* Header */}
       <div>
-        <h1 className="text-2xl font-bold text-white flex items-center gap-3">
-          <div className="p-2 rounded-xl bg-gradient-to-br from-brand-500 to-purple-600 shadow-lg shadow-brand-500/20">
-            <User className="w-6 h-6 text-white" />
+        <h1 className="text-2xl font-bold text-slate-900 flex items-center gap-3">
+          <div className="p-2 rounded-xl bg-slate-50radient-to-br from-brand-500 to-purple-600 shadow-lg shadow-brand-500/20">
+            <User className="w-6 h-6 text-slate-900" />
           </div>
           Hồ sơ cá nhân
         </h1>
-        <p className="text-slate-400 mt-1">Quản lý thông tin cá nhân của bạn</p>
+        <p className="text-slate-500 mt-1">Quản lý thông tin cá nhân của bạn</p>
       </div>
 
       {/* Profile card */}
       <div className="glass-card p-6">
         {/* User info display */}
-        <div className="flex items-center gap-4 mb-6 pb-6 border-b border-white/5">
-          <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-brand-500 to-purple-600 flex items-center justify-center text-white text-2xl font-bold shadow-lg">
+        <div className="flex items-center gap-4 mb-6 pb-6 border-slate-200 border-slate-200">
+          <div className="w-16 h-16 rounded-2xl bg-slate-50radient-to-br from-brand-500 to-purple-600 flex items-center justify-center text-white text-2xl font-bold shadow-lg">
             {user?.full_name?.[0]?.toUpperCase() || user?.email?.[0]?.toUpperCase() || '?'}
           </div>
           <div>
-            <h2 className="text-xl font-semibold text-white">{user?.full_name || 'Chưa đặt tên'}</h2>
-            <p className="text-slate-400 text-sm flex items-center gap-1">
+            <h2 className="text-xl font-semibold text-slate-900">{user?.full_name || 'Chưa đặt tên'}</h2>
+            <p className="text-slate-500 text-sm flex items-center gap-1">
               <Mail className="w-3.5 h-3.5" />
               {user?.email}
             </p>
@@ -109,10 +109,10 @@ export default function ProfilePage() {
           </div>
 
           {error && (
-            <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-3 text-red-400 text-sm">{error}</div>
+            <div className="bg-slate-50ed-500/10 border border-slate-200ed-500/30 rounded-xl p-3 text-red-400 text-sm">{error}</div>
           )}
           {success && (
-            <div className="bg-green-500/10 border border-green-500/30 rounded-xl p-3 text-green-400 text-sm flex items-center gap-2">
+            <div className="bg-slate-50reen-500/10 border border-slate-200reen-500/30 rounded-xl p-3 text-green-400 text-sm flex items-center gap-2">
               <CheckCircle className="w-4 h-4" />
               {success}
             </div>

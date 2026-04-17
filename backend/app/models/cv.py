@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime
+from typing import TYPE_CHECKING
 
 from pgvector.sqlalchemy import Vector
 from sqlalchemy import DateTime, ForeignKey, Integer, String, Text, func
@@ -18,6 +19,10 @@ from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.base import Base
+
+if TYPE_CHECKING:
+    from app.models.interaction import UserInteraction
+    from app.models.user import User
 
 
 class CV(Base):
@@ -44,10 +49,7 @@ class CV(Base):
         "UserInteraction", back_populates="cv"
     )
 
-    # Relationships — Phase 1
-    applications: Mapped[list["Application"]] = relationship(
-        "Application", back_populates="cv"
-    )
+
 
     def __repr__(self) -> str:
         return f"<CV id={self.id} filename={self.filename}>"

@@ -27,16 +27,16 @@ function StatsCard({ icon: Icon, label, value, color, secondaryLabel }) {
   return (
     <div className="glass-card p-5 flex flex-col justify-between h-full">
       <div className="flex items-start gap-4">
-        <div className={`w-11 h-11 rounded-xl flex items-center justify-center shrink-0 bg-gradient-to-br ${colorClasses[color] || colorClasses.brand}`}>
-          <Icon size={20} className="text-white" />
+        <div className={`w-11 h-11 rounded-xl flex items-center justify-center shrink-0 bg-slate-50radient-to-br ${colorClasses[color] || colorClasses.brand}`}>
+          <Icon size={20} className="text-slate-900" />
         </div>
         <div>
-          <p className="text-slate-400 text-xs font-medium">{label}</p>
-          <p className="text-white text-2xl font-bold mt-0.5">{value}</p>
+          <p className="text-slate-500 text-xs font-medium">{label}</p>
+          <p className="text-slate-900 text-2xl font-bold mt-0.5">{value}</p>
         </div>
       </div>
       {secondaryLabel && (
-        <div className="mt-4 pt-4 border-t border-white/5">
+        <div className="mt-4 pt-4 border-t border-slate-200">
           <span className="text-slate-500 text-xs">{secondaryLabel}</span>
         </div>
       )}
@@ -47,7 +47,7 @@ function StatsCard({ icon: Icon, label, value, color, secondaryLabel }) {
 function ChartCard({ title, icon: Icon, children, className = '' }) {
   return (
     <div className={`glass-card p-6 ${className}`}>
-      <h3 className="text-white font-semibold mb-4 flex items-center gap-2">
+      <h3 className="text-slate-900 font-semibold mb-4 flex items-center gap-2">
         <Icon className="w-4 h-4 text-brand-400" />
         {title}
       </h3>
@@ -85,12 +85,12 @@ function AdminAnalytics() {
         <ChartCard title="Crawler Monitor" icon={Server}>
            <div className="flex flex-col gap-4">
              <div className="grid grid-cols-2 gap-4">
-               <div className="p-4 bg-white/5 rounded-xl text-center">
-                 <p className="text-xs text-slate-400 mb-1">Global Error Rate</p>
+               <div className="p-4 bg-slate-100 rounded-xl text-center">
+                 <p className="text-xs text-slate-500 mb-1">Global Error Rate</p>
                  <p className="text-2xl font-bold font-mono text-rose-400">{crawlerStats?.error_rate || 0}%</p>
                </div>
-               <div className="p-4 bg-white/5 rounded-xl text-center">
-                 <p className="text-xs text-slate-400 mb-1">Status</p>
+               <div className="p-4 bg-slate-100 rounded-xl text-center">
+                 <p className="text-xs text-slate-500 mb-1">Status</p>
                  <p className={`text-xl font-bold flex items-center justify-center gap-2 ${crawlerStats?.is_blocked ? 'text-amber-400' : 'text-emerald-400'}`}>
                    {crawlerStats?.is_blocked ? <><ShieldAlert size={20} /> BLOCKED</>  : 'HEALTHY'}
                  </p>
@@ -98,9 +98,9 @@ function AdminAnalytics() {
              </div>
              
              <div className="flex-1 mt-2">
-               <h4 className="text-sm text-slate-300 font-medium mb-2">Sources Overview</h4>
+               <h4 className="text-sm text-slate-600 font-medium mb-2">Sources Overview</h4>
                {crawlerStats?.jobs_per_source?.map(s => (
-                  <div key={s.source} className="flex justify-between items-center p-3 border-b border-white/5 last:border-0 hover:bg-white/5 transition-colors">
+                  <div key={s.source} className="flex justify-between items-center p-3 border-slate-200 border-slate-200 last:border-slate-200 hover:bg-slate-100 transition-colors">
                     <span className="text-sm font-semibold capitalize">{s.source}</span>
                     <div className="text-xs text-right">
                       <span className="text-emerald-400 mr-3">Inserted: {s.inserted}</span>

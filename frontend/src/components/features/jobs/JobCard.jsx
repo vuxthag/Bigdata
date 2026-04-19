@@ -17,10 +17,12 @@ export default function JobCard({
     position_title,
     description,
     description_preview,
-    company_name,
+    company,
     location,
-    salary,
+    pretty_salary,
     job_type,
+    years_of_experience,
+    job_level,
     similarity_score,
   } = job
 
@@ -46,7 +48,7 @@ export default function JobCard({
 
           {/* Company */}
           <p className="text-slate-500 text-xs mt-0.5">
-            {company_name || 'JobMatch AI'}
+            {company || 'JobMatch AI'}
           </p>
 
           {/* Tags row */}
@@ -68,12 +70,16 @@ export default function JobCard({
                 {location}
               </span>
             )}
-            {salary && (
+            {pretty_salary && (
               <span className="tag">
                 <DollarSign className="w-3 h-3 mr-0.5" />
-                {salary}
+                {pretty_salary}
               </span>
             )}
+            {years_of_experience != null && (
+              <span className="tag">{years_of_experience}+ năm</span>
+            )}
+            {job_level && <span className="tag">{job_level}</span>}
           </div>
         </div>
 

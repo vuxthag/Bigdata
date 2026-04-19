@@ -46,13 +46,12 @@ async def _check_and_retrain():
 
 
 async def _seed_data():
-    """Seed new_training_data.csv (or legacy training_data.csv) into the DB if no jobs exist."""
+    """Seed jobs from CSV into DB if no jobs exist."""
     import pandas as pd
     from sqlalchemy import func, select
 
     from app.ml.preprocessing import clean_text
     from app.models.job import Job
-    from app.services.embedding_service import embedding_service
 
     seed_path = settings.SEED_DATA_PATH
     if not os.path.exists(seed_path):
@@ -69,12 +68,33 @@ async def _seed_data():
         try:
             df = pd.read_csv(seed_path, encoding="utf-8-sig")
 
-            if "title" in df.columns and "raw_text" in df.columns:
-                df = df[["title", "raw_text", "description", "company", "job_url"]].copy()
-                df = df.rename(columns={"title": "position_title",
-                                        "raw_text": "job_description"})
+            if "jobTitle" in df.columns and "jobDescription" in df.columns:
+                df = df.rename(
+                    columns={
+                        "jobId": "external_job_id",
+                        "jobTitle": "position_title",
+                        "companyName": "company",
+                        "jobUrl": "link",
+                        "prettySalary": "pretty_salary",
+                        "salaryMin": "salary_min",
+                        "salaryMax": "salary_max",
+                        "salaryCurrency": "salary_currency",
+                        "jobDescription": "job_description",
+                        "jobRequirement": "job_requirement",
+                        "yearsOfExperience": "years_of_experience",
+                        "jobLevel": "job_level",
+                        "jobFunction": "job_function",
+                        "approvedOn": "approved_on",
+                        "expiredOn": "expired_on",
+                        "companyId": "company_id",
+                        "companyProfile": "company_profile",
+                    }
+                )
             elif "position_title" in df.columns and "job_description" in df.columns:
-                df = df[["position_title", "job_description"]].copy()
+                pass
+            elif "title" in df.columns and "raw_text" in df.columns:
+                df = df[["title", "raw_text", "description", "company", "job_url"]].copy()
+                df = df.rename(columns={"title": "position_title", "raw_text": "job_description"})
             else:
                 logger.error(f"[Seed] Unrecognised CSV schema. Columns: {list(df.columns)}")
                 return
@@ -84,27 +104,69 @@ async def _seed_data():
             logger.error(f"[Seed] Failed to load CSV: {e}")
             return
 
-        logger.info(f"[Seed] Encoding {len(df)} job descriptions with SBERT...")
-        titles = df["position_title"].tolist()
-        descriptions = df["job_description"].tolist()
-        cleaned_texts = [clean_text(t) for t in descriptions]
+        def _norm_int(value):
+            if pd.isna(value):
+                return None
+            s = str(value).strip()
+            if not s:
+                return None
+            try:
+                return int(float(s))
+            except Exception:
+                return None
 
-        try:
-            embeddings = embedding_service.encode_batch(cleaned_texts, batch_size=64)
-        except Exception as e:
-            logger.error(f"[Seed] Embedding failed: {e}")
-            return
+        def _norm_str(value):
+            if pd.isna(value):
+                return None
+            s = str(value).strip()
+            return s or None
 
+        def _norm_datetime(value):
+            if pd.isna(value):
+                return None
+            dt = pd.to_datetime(value, utc=True, errors="coerce")
+            if pd.isna(dt):
+                return None
+            return dt.to_pydatetime()
+
+        def _norm_skills(value):
+            if pd.isna(value):
+                return None
+            skills = [s.strip() for s in str(value).split(",") if s.strip()]
+            return skills or None
+
+        logger.info(f"[Seed] Preparing {len(df)} jobs from CSV...")
         job_objects = []
-        for i in range(len(titles)):
+        for row in df.to_dict(orient="records"):
+            description = row.get("job_description") or ""
+            cleaned_description = clean_text(description)
+
             job_objects.append(Job(
-                position_title=titles[i],
-                description=descriptions[i],
-                cleaned_description=cleaned_texts[i],
-                embedding=embeddings[i].tolist(),
-                company=df["company"].iloc[i] if "company" in df.columns else None,
-                link=df["job_url"].iloc[i] if "job_url" in df.columns else None,
-                source="seed",
+                position_title=row.get("position_title"),
+                description=description,
+                cleaned_description=cleaned_description,
+                embedding=None,
+                source="csv_seed",
+                external_job_id=_norm_str(row.get("external_job_id")),
+                company=_norm_str(row.get("company")),
+                company_id=_norm_str(row.get("company_id")),
+                company_profile=_norm_str(row.get("company_profile")),
+                location=_norm_str(row.get("location")),
+                address=_norm_str(row.get("address")),
+                link=_norm_str(row.get("link") or row.get("job_url")),
+                skills=_norm_skills(row.get("skills")),
+                pretty_salary=_norm_str(row.get("pretty_salary")),
+                salary_min=_norm_int(row.get("salary_min")),
+                salary_max=_norm_int(row.get("salary_max")),
+                salary_currency=_norm_str(row.get("salary_currency")),
+                years_of_experience=_norm_int(row.get("years_of_experience")),
+                job_level=_norm_str(row.get("job_level")),
+                industry=_norm_str(row.get("industry")),
+                job_function=_norm_str(row.get("job_function")),
+                job_requirement=_norm_str(row.get("job_requirement")),
+                benefits=_norm_str(row.get("benefits")),
+                approved_on=_norm_datetime(row.get("approved_on")),
+                expired_on=_norm_datetime(row.get("expired_on")),
             ))
 
         db.add_all(job_objects)

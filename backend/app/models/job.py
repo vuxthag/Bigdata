@@ -52,6 +52,7 @@ class Job(Base):
     cleaned_description: Mapped[str | None] = mapped_column(Text, nullable=True)
     embedding: Mapped[list[float] | None] = mapped_column(Vector(384), nullable=True)
     source: Mapped[str] = mapped_column(String(50), default="vietnamworks", nullable=False)
+    external_job_id: Mapped[str | None] = mapped_column(String(50), nullable=True, index=True)
     created_by: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True),
         ForeignKey("users.id", ondelete="SET NULL"),
@@ -64,9 +65,22 @@ class Job(Base):
 
     # Crawler fields
     company: Mapped[str | None] = mapped_column(String(255), nullable=True, index=True)
+    company_id: Mapped[str | None] = mapped_column(String(50), nullable=True, index=True)
+    company_profile: Mapped[str | None] = mapped_column(Text, nullable=True)
     location: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    address: Mapped[str | None] = mapped_column(Text, nullable=True)
     link: Mapped[str | None] = mapped_column(Text, nullable=True)
     skills: Mapped[list[str] | None] = mapped_column(ARRAY(Text), nullable=True)
+    pretty_salary: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    salary_currency: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    years_of_experience: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    job_level: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    industry: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    job_function: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    job_requirement: Mapped[str | None] = mapped_column(Text, nullable=True)
+    benefits: Mapped[str | None] = mapped_column(Text, nullable=True)
+    approved_on: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    expired_on: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     updated_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True, onupdate=func.now()
     )

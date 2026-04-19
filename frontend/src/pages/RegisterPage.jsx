@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { Briefcase, Mail, Lock, User, Loader2 } from 'lucide-react'
 import { authApi } from '../api/auth'
 import useAuthStore from '../store/authStore'
+import GoogleLoginButton from '../components/ui/GoogleLoginButton'
 
 export default function RegisterPage() {
   const navigate = useNavigate()
@@ -79,6 +80,19 @@ export default function RegisterPage() {
               {loading ? 'Đang tạo tài khoản...' : 'Tạo tài khoản'}
             </button>
           </form>
+
+          {/* Divider */}
+          <div className="relative">
+            <div className="absolute inset-0 flex items-center">
+              <div className="w-full border-t border-slate-200" />
+            </div>
+            <div className="relative flex justify-center text-xs">
+              <span className="bg-white px-3 text-slate-400">hoặc</span>
+            </div>
+          </div>
+
+          {/* Google Sign-In */}
+          <GoogleLoginButton />
 
           <div className="text-center text-sm text-slate-500">
             Đã có tài khoản?{' '}

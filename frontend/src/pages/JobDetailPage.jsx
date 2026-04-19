@@ -37,8 +37,9 @@ function extractSkills(text) {
 /* ── Component ──────────────────────────────── */
 export default function JobDetailPage() {
   const { jobId } = useParams()
-  const [saved, setSaved] = useState(() => getSavedJobs().includes(Number(jobId)))
-  const [applied, setApplied] = useState(() => getAppliedJobs().some(a => a.id === Number(jobId)))
+  const normalizedJobId = String(jobId)
+  const [saved, setSaved] = useState(() => getSavedJobs().includes(normalizedJobId))
+  const [applied, setApplied] = useState(() => getAppliedJobs().some(a => String(a.id) === normalizedJobId))
 
   const { data: job, isLoading, isError } = useQuery({
     queryKey: ['job-detail', jobId],
@@ -51,15 +52,21 @@ export default function JobDetailPage() {
     queryFn: () => jobsApi.list({ page_size: 4 }).then(r => r.data),
   })
 
-  const relatedJobs = (relatedData?.items || []).filter(j => j.id !== Number(jobId)).slice(0, 3)
+  const relatedJobs = (relatedData?.items || []).filter(j => String(j.id) !== normalizedJobId).slice(0, 3)
   const skills = extractSkills(job?.description || job?.position_title || '')
+  const displaySkills = Array.isArray(job?.skills) && job.skills.length > 0 ? job.skills : skills
+  const salaryRange =
+    job?.pretty_salary
+    || (job?.salary_min != null && job?.salary_max != null
+      ? `${job.salary_min.toLocaleString()} - ${job.salary_max.toLocaleString()} ${job.salary_currency || ''}`.trim()
+      : null)
 
   const handleSave = () => {
     const list = getSavedJobs()
     if (saved) {
-      setSavedJobs(list.filter(id => id !== Number(jobId)))
+      setSavedJobs(list.filter(id => String(id) !== normalizedJobId))
     } else {
-      list.push(Number(jobId))
+      list.push(normalizedJobId)
       setSavedJobs(list)
     }
     setSaved(!saved)
@@ -68,7 +75,7 @@ export default function JobDetailPage() {
   const handleApply = () => {
     if (applied) return
     const list = getAppliedJobs()
-    list.push({ id: Number(jobId), title: job?.position_title, date: new Date().toISOString(), status: 'Đã gửi' })
+    list.push({ id: normalizedJobId, title: job?.position_title, date: new Date().toISOString(), status: 'Đã gửi' })
     setAppliedJobs(list)
     setApplied(true)
   }
@@ -120,7 +127,7 @@ export default function JobDetailPage() {
                 {job.position_title}
               </h1>
               <p className="text-brand-400 font-medium mt-1">
-                {job.company_name || 'JobMatch AI'}
+                {job.company || 'JobMatch AI'}
               </p>
 
               {/* Meta row */}
@@ -131,13 +138,19 @@ export default function JobDetailPage() {
                 <span className="flex items-center gap-1">
                   <Briefcase className="w-3.5 h-3.5" /> {job.job_type || 'Full-time'}
                 </span>
-                {job.salary && (
+                {salaryRange && (
                   <span className="flex items-center gap-1">
-                    <DollarSign className="w-3.5 h-3.5" /> {job.salary}
+                    <DollarSign className="w-3.5 h-3.5" /> {salaryRange}
+                  </span>
+                )}
+                {job.job_level && (
+                  <span className="flex items-center gap-1">
+                    <CheckCircle className="w-3.5 h-3.5" /> {job.job_level}
                   </span>
                 )}
                 <span className="flex items-center gap-1">
-                  <Clock className="w-3.5 h-3.5" /> Đăng gần đây
+                  <Clock className="w-3.5 h-3.5" />
+                  {job.approved_on ? new Date(job.approved_on).toLocaleDateString('vi-VN') : 'Đăng gần đây'}
                 </span>
               </div>
             </div>
@@ -189,13 +202,31 @@ export default function JobDetailPage() {
             </div>
 
             {/* Skills Required */}
-            {skills.length > 0 && (
+            {displaySkills.length > 0 && (
               <div className="glass-card p-6">
                 <h2 className="text-slate-900 font-semibold text-lg mb-4">Kỹ năng yêu cầu</h2>
                 <div className="flex flex-wrap gap-2">
-                  {skills.map(skill => (
+                  {displaySkills.map(skill => (
                     <span key={skill} className="badge-brand">{skill}</span>
                   ))}
+                </div>
+              </div>
+            )}
+
+            {job.job_requirement && (
+              <div className="glass-card p-6">
+                <h2 className="text-slate-900 font-semibold text-lg mb-4">Yêu cầu công việc</h2>
+                <div className="text-slate-600 text-sm leading-relaxed whitespace-pre-line">
+                  {job.job_requirement}
+                </div>
+              </div>
+            )}
+
+            {job.benefits && (
+              <div className="glass-card p-6">
+                <h2 className="text-slate-900 font-semibold text-lg mb-4">Quyền lợi</h2>
+                <div className="text-slate-600 text-sm leading-relaxed whitespace-pre-line">
+                  {job.benefits}
                 </div>
               </div>
             )}
@@ -211,26 +242,38 @@ export default function JobDetailPage() {
                     <Building2 className="w-5 h-5 text-brand-400" />
                   </div>
                   <div>
-                    <p className="text-slate-900 text-sm font-medium">{job.company_name || 'JobMatch AI'}</p>
-                    <p className="text-slate-500 text-xs">Công nghệ thông tin</p>
+                    <p className="text-slate-900 text-sm font-medium">{job.company || 'JobMatch AI'}</p>
+                    <p className="text-slate-500 text-xs">{job.industry || 'Nhiều lĩnh vực'}</p>
                   </div>
                 </div>
                 <div className="space-y-2 pt-2">
+                  {job.address && (
+                    <div className="text-slate-500 text-sm leading-relaxed">{job.address}</div>
+                  )}
                   <div className="flex items-center gap-2 text-slate-500 text-sm">
                     <MapPin className="w-3.5 h-3.5 text-slate-500" />
                     {job.location || 'Việt Nam'}
                   </div>
                   <div className="flex items-center gap-2 text-slate-500 text-sm">
                     <Briefcase className="w-3.5 h-3.5 text-slate-500" />
-                    50-200 nhân viên
+                    {job.job_function || 'Đang cập nhật'}
                   </div>
                 </div>
-                <Link
-                  to={`/companies/${job.company_name || 'jobmatch-ai'}`}
-                  className="text-brand-400 text-xs font-medium hover:text-brand-300 flex items-center gap-1 mt-2"
-                >
-                  Xem trang công ty <ExternalLink className="w-3 h-3" />
-                </Link>
+                {job.link && (
+                  <a
+                    href={job.link}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-brand-400 text-xs font-medium hover:text-brand-300 flex items-center gap-1 mt-2"
+                  >
+                    Xem tin tuyển dụng gốc <ExternalLink className="w-3 h-3" />
+                  </a>
+                )}
+                {job.company_profile && (
+                  <div className="pt-3 border-t border-slate-200 mt-3">
+                    <p className="text-slate-500 text-xs leading-relaxed line-clamp-6">{job.company_profile}</p>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -244,11 +287,19 @@ export default function JobDetailPage() {
                 </div>
                 <div className="flex justify-between text-slate-500">
                   <span>Kinh nghiệm</span>
-                  <span className="text-slate-900">{job.experience || '1-3 năm'}</span>
+                  <span className="text-slate-900">{job.years_of_experience != null ? `${job.years_of_experience}+ năm` : 'Không yêu cầu'}</span>
                 </div>
                 <div className="flex justify-between text-slate-500">
                   <span>Mức lương</span>
-                  <span className="text-slate-900">{job.salary || 'Thỏa thuận'}</span>
+                  <span className="text-slate-900">{salaryRange || 'Thỏa thuận'}</span>
+                </div>
+                <div className="flex justify-between text-slate-500">
+                  <span>Lĩnh vực</span>
+                  <span className="text-slate-900">{job.industry || 'Đang cập nhật'}</span>
+                </div>
+                <div className="flex justify-between text-slate-500">
+                  <span>Hạn nộp</span>
+                  <span className="text-slate-900">{job.expired_on ? new Date(job.expired_on).toLocaleDateString('vi-VN') : 'Đang cập nhật'}</span>
                 </div>
               </div>
             </div>

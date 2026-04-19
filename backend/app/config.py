@@ -25,6 +25,9 @@ class Settings(BaseSettings):
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60
     ALGORITHM: str = "HS256"
 
+    # ── Google OAuth ────────────────────────────────────────────────────────
+    GOOGLE_CLIENT_ID: str = ""
+
     # ── Sentence-BERT ─────────────────────────────────────────────────────────
     SBERT_MODEL_NAME: str = "all-MiniLM-L6-v2"
     EMBEDDING_DIM: int = 384
@@ -38,7 +41,7 @@ class Settings(BaseSettings):
     MAX_UPLOAD_SIZE_MB: int = 10
 
     # ── Data ──────────────────────────────────────────────────────────────────
-    SEED_DATA_PATH: str = "data/new_training_data.csv"
+    SEED_DATA_PATH: str = "data/jobs_full_all.csv"
 
     @property
     def max_upload_bytes(self) -> int:

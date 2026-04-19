@@ -1,5 +1,8 @@
 FROM node:20-alpine AS builder
 
+ARG VITE_GOOGLE_CLIENT_ID=""
+ENV VITE_GOOGLE_CLIENT_ID=$VITE_GOOGLE_CLIENT_ID
+
 WORKDIR /app
 
 COPY package.json .

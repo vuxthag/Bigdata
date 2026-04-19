@@ -95,8 +95,6 @@ python -m crawler.main --source all --pages 1 --no-embed
 ```
 
 **Automated crawling** runs every 10 minutes via APScheduler (starts with FastAPI):
-- ITviec starts immediately
-- TopCV starts 3 minutes after ITviec
 - VietnamWorks starts 6 minutes after ITviec
 
 ---
@@ -152,10 +150,7 @@ cv-job-recommendation-system/
 ## 🤖 Key Features
 
 ### 1. Multi-Source Crawler (NEW)
-- **ITviec** — IT jobs scraper with server-side HTML parsing
-- **TopCV** — Vietnam's largest job platform scraper
 - **VietnamWorks** — HTML + JSON-LD dual parsing strategy
-- All 3 run every 10 minutes via APScheduler (staggered by 3 minutes each)
 - Deduplication by URL, retry with exponential backoff, polite delays
 
 ### 2. Real-time Job-to-CV Matching (NEW)

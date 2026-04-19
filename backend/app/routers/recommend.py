@@ -1,7 +1,7 @@
 """
 routers/recommend.py
 =====================
-Recommendation endpoints: by CV, by title, and interaction feedback.
+Recommendation endpoints: by CV, by title, interaction feedback, and CV analysis.
 """
 from __future__ import annotations
 
@@ -14,6 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.database import get_db
 from app.models.cv import CV
 from app.models.user import User
+from app.schemas.ranking_schema import CVAnalysisResponse, CVProfileResponse
 from app.schemas.recommendation import (
     InteractionCreate,
     RecommendByCVRequest,

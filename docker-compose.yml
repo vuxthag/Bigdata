@@ -36,7 +36,8 @@ services:
       RETRAIN_SCHEDULE_HOURS: "1"
       MODEL_CHECKPOINT_DIR: /app/ml_checkpoints/
       MAX_UPLOAD_SIZE_MB: "10"
-      SEED_DATA_PATH: /app/data/training_data.csv
+      SEED_DATA_PATH: /app/data/jobs_full_all.csv
+      GOOGLE_CLIENT_ID: "469990292298-4unduf19o2hh0p4embokmpvaacasm6n2.apps.googleusercontent.com"
       # ── Crawler settings ─────────────────────────────────────────────────
       CRAWLER_INTERVAL_MINUTES: "10"
       CRAWLER_MAX_JOBS_PER_RUN: "30"
@@ -64,6 +65,8 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
+      args:
+        VITE_GOOGLE_CLIENT_ID: "469990292298-4unduf19o2hh0p4embokmpvaacasm6n2.apps.googleusercontent.com"
     container_name: jobrec_frontend
     depends_on:
       - backend

@@ -63,10 +63,24 @@ async def migrate_crawler_columns() -> None:
     from sqlalchemy import text
 
     _migrations = [
+        "ALTER TABLE job_descriptions ADD COLUMN IF NOT EXISTS external_job_id VARCHAR(50)",
         "ALTER TABLE job_descriptions ADD COLUMN IF NOT EXISTS company VARCHAR(255)",
+        "ALTER TABLE job_descriptions ADD COLUMN IF NOT EXISTS company_id VARCHAR(50)",
+        "ALTER TABLE job_descriptions ADD COLUMN IF NOT EXISTS company_profile TEXT",
         "ALTER TABLE job_descriptions ADD COLUMN IF NOT EXISTS location VARCHAR(255)",
+        "ALTER TABLE job_descriptions ADD COLUMN IF NOT EXISTS address TEXT",
         "ALTER TABLE job_descriptions ADD COLUMN IF NOT EXISTS link TEXT",
         "ALTER TABLE job_descriptions ADD COLUMN IF NOT EXISTS skills TEXT[]",
+        "ALTER TABLE job_descriptions ADD COLUMN IF NOT EXISTS pretty_salary VARCHAR(255)",
+        "ALTER TABLE job_descriptions ADD COLUMN IF NOT EXISTS salary_currency VARCHAR(20)",
+        "ALTER TABLE job_descriptions ADD COLUMN IF NOT EXISTS years_of_experience INTEGER",
+        "ALTER TABLE job_descriptions ADD COLUMN IF NOT EXISTS job_level VARCHAR(255)",
+        "ALTER TABLE job_descriptions ADD COLUMN IF NOT EXISTS industry VARCHAR(255)",
+        "ALTER TABLE job_descriptions ADD COLUMN IF NOT EXISTS job_function VARCHAR(255)",
+        "ALTER TABLE job_descriptions ADD COLUMN IF NOT EXISTS job_requirement TEXT",
+        "ALTER TABLE job_descriptions ADD COLUMN IF NOT EXISTS benefits TEXT",
+        "ALTER TABLE job_descriptions ADD COLUMN IF NOT EXISTS approved_on TIMESTAMPTZ",
+        "ALTER TABLE job_descriptions ADD COLUMN IF NOT EXISTS expired_on TIMESTAMPTZ",
         "ALTER TABLE job_descriptions ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ",
         # Unique index for fast dedup; CREATE IF NOT EXISTS is Postgres 9.5+
         """
@@ -76,6 +90,13 @@ async def migrate_crawler_columns() -> None:
         """,
         # Regular index for company lookups
         "CREATE INDEX IF NOT EXISTS ix_job_descriptions_company ON job_descriptions (company)",
+        "CREATE INDEX IF NOT EXISTS ix_job_descriptions_external_job_id ON job_descriptions (external_job_id)",
+        "CREATE INDEX IF NOT EXISTS ix_job_descriptions_company_id ON job_descriptions (company_id)",
+        # ── User table: Google OAuth columns ──
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS google_id VARCHAR(255)",
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_url TEXT",
+        "ALTER TABLE users ALTER COLUMN hashed_password DROP NOT NULL",
+        "CREATE UNIQUE INDEX IF NOT EXISTS uq_users_google_id ON users (google_id) WHERE google_id IS NOT NULL",
     ]
 
     async with engine.begin() as conn:

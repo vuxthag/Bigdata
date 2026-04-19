@@ -1,14 +1,18 @@
 """
 routers/auth.py
 ===============
-Authentication endpoints: register, login, logout, me.
+Authentication endpoints: register, login, logout, me, google.
 """
 from __future__ import annotations
 
+import logging
+
 from fastapi import APIRouter, Depends, HTTPException, status
+from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.config import settings
 from app.database import get_db
 from app.models.user import User
 from app.schemas.user import RegisterResponse, TokenResponse, UserCreate, UserLogin, UserResponse
@@ -18,6 +22,8 @@ from app.services.auth_service import (
     hash_password,
     verify_password,
 )
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 
@@ -83,3 +89,83 @@ async def logout(current_user: User = Depends(get_current_user)):
 async def me(current_user: User = Depends(get_current_user)):
     """Return the current authenticated user's profile."""
     return UserResponse.model_validate(current_user)
+
+
+# ── Google OAuth ─────────────────────────────────────────────────────────────
+
+class GoogleTokenBody(BaseModel):
+    credential: str  # Google ID token from frontend
+
+
+@router.post("/google", response_model=TokenResponse)
+async def google_login(body: GoogleTokenBody, db: AsyncSession = Depends(get_db)):
+    """
+    Verify Google ID token, create or find user, and return JWT.
+
+    Flow:
+    1. Frontend gets credential from Google Identity Services
+    2. Backend verifies it with Google's tokeninfo endpoint
+    3. Upsert user (match by google_id or email)
+    4. Return app JWT
+    """
+    import httpx
+
+    # Verify token with Google
+    async with httpx.AsyncClient() as client:
+        resp = await client.get(
+            "https://oauth2.googleapis.com/tokeninfo",
+            params={"id_token": body.credential},
+        )
+    if resp.status_code != 200:
+        logger.warning("[Google Auth] Token verification failed: %s", resp.text)
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid Google token")
+
+    payload = resp.json()
+
+    # Validate audience matches our client ID
+    if settings.GOOGLE_CLIENT_ID and payload.get("aud") != settings.GOOGLE_CLIENT_ID:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Token audience mismatch")
+
+    google_id = payload.get("sub")
+    email = payload.get("email")
+    name = payload.get("name")
+    picture = payload.get("picture")
+
+    if not email:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Google account has no email")
+
+    # Look up user by google_id first, then by email
+    result = await db.execute(select(User).where(User.google_id == google_id))
+    user = result.scalar_one_or_none()
+
+    if not user:
+        # Try finding by email (user registered with email/password before)
+        result = await db.execute(select(User).where(User.email == email))
+        user = result.scalar_one_or_none()
+        if user:
+            # Link Google to existing account
+            user.google_id = google_id
+            if not user.avatar_url:
+                user.avatar_url = picture
+            if not user.full_name and name:
+                user.full_name = name
+        else:
+            # Create new user
+            user = User(
+                email=email,
+                full_name=name,
+                google_id=google_id,
+                avatar_url=picture,
+                hashed_password=None,
+            )
+            db.add(user)
+
+    await db.flush()
+    await db.commit()
+    await db.refresh(user)
+
+    if not user.is_active:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Account is inactive")
+
+    token, expires_in = create_access_token(user.id)
+    return TokenResponse(access_token=token, expires_in=expires_in)

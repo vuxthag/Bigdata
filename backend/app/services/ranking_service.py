@@ -31,7 +31,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.ml.feature_engine import (
     build_interaction_bonus,
     extract_skills,
-    skill_overlap,
 )
 from app.models.cv import CV
 from app.models.interaction import UserInteraction
@@ -41,7 +40,6 @@ from app.services.cv_analyzer import (
     build_jd_skill_pool,
     compute_job_match,
     extract_education,
-    generate_improvement_tips,
 )
 
 logger = logging.getLogger(__name__)
@@ -61,6 +59,22 @@ DEFAULT_WEIGHTS: dict[str, float] = {
 
 def _vec_to_str(embedding: list[float]) -> str:
     return "[" + ",".join(f"{x:.6f}" for x in embedding) + "]"
+
+
+def _parse_embedding(embedding_val) -> list[float]:
+    """Parse embedding from various formats (list, string, numpy array)."""
+    if embedding_val is None:
+        return []
+    if isinstance(embedding_val, list):
+        return [float(x) for x in embedding_val]
+    if isinstance(embedding_val, str):
+        # Remove brackets and split by comma
+        cleaned = embedding_val.strip("[]")
+        if not cleaned:
+            return []
+        return [float(x) for x in cleaned.split(",")]
+    # Handle numpy array or other sequence types
+    return [float(x) for x in embedding_val]
 
 
 def _cosine(a: np.ndarray, b: np.ndarray) -> float:
@@ -248,8 +262,21 @@ async def rank_jobs_for_candidate(
     )
     jd_rows = (await db.execute(pre_filter_stmt, {"emb": emb_str})).all()
 
-    # Build JD skill pool for enhanced CV skill extraction
+    # Build JD skill pool from ALL jobs first (for comprehensive CV skill extraction)
     jd_skill_pool = build_jd_skill_pool([list(r.skills or []) for r in jd_rows])
+
+    # Also extract skills from JD descriptions to enrich the pool
+    for row in jd_rows:
+        if row.description:
+            from app.ml.feature_engine import extract_skills as base_extract
+            desc_skills = base_extract(row.description)
+            jd_skill_pool.update(desc_skills)
+        if row.job_requirement:
+            from app.ml.feature_engine import extract_skills as base_extract
+            req_skills = base_extract(row.job_requirement)
+            jd_skill_pool.update(req_skills)
+
+    # Now analyze CV with enriched skill pool
     cv_profile = analyze_cv(cv_text, jd_skill_pool)
     cv_skills_lower = {s.lower() for s in cv_profile.skills}
 
@@ -257,7 +284,11 @@ async def rank_jobs_for_candidate(
     scored: list[tuple[float, RankedJob]] = []
 
     for row in jd_rows:
-        jd_emb = np.array(row.embedding, dtype=np.float32)
+        jd_emb_list = _parse_embedding(row.embedding)
+        if not jd_emb_list or len(jd_emb_list) < 10:
+            logger.warning(f"[Ranking] Invalid embedding for job {row.id}, skipping")
+            continue
+        jd_emb = np.array(jd_emb_list, dtype=np.float32)
 
         # Use stored YOE from DB (much more reliable than regex from text)
         jd_yoe = float(row.years_of_experience or 0)
@@ -312,7 +343,14 @@ async def rank_jobs_for_candidate(
             pretty_salary       = row.pretty_salary,
         )))
 
-    # 5. Filter >= 40%, Sort descending and return top_n
-    filtered_scored = [(s, r) for s, r in scored if s >= 0.4]
+    # 5. Filter >= 35% (lowered threshold for better recall), Sort descending and return top_n
+    filtered_scored = [(s, r) for s, r in scored if s >= 0.35]
     filtered_scored.sort(key=lambda t: t[0], reverse=True)
+
+    # If we have too few results, lower threshold further
+    if len(filtered_scored) < top_n:
+        remaining = [(s, r) for s, r in scored if 0.25 <= s < 0.35]
+        remaining.sort(key=lambda t: t[0], reverse=True)
+        filtered_scored.extend(remaining)
+
     return [r for _, r in filtered_scored[:top_n]]

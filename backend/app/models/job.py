@@ -29,7 +29,7 @@ from sqlalchemy import (
     Boolean, DateTime, ForeignKey,
     Integer, String, Text, UniqueConstraint, func,
 )
-from sqlalchemy.dialects.postgresql import ARRAY, UUID
+from sqlalchemy.dialects.postgresql import ARRAY, TSVECTOR, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.base import Base
@@ -89,6 +89,9 @@ class Job(Base):
     salary_min: Mapped[int | None] = mapped_column(Integer, nullable=True)
     salary_max: Mapped[int | None] = mapped_column(Integer, nullable=True)
     job_type: Mapped[str | None] = mapped_column(String(50), nullable=True)
+
+    # Full-text search (populated by DB trigger)
+    search_vector = mapped_column(TSVECTOR, nullable=True)
 
     # Relationships
     interactions: Mapped[list["UserInteraction"]] = relationship(

@@ -173,6 +173,31 @@ async def _seed_data():
         await db.commit()
         logger.info(f"[Seed] Seeded {len(job_objects)} jobs successfully.")
 
+        # Generate embeddings for seeded jobs (batch processing)
+        logger.info("[Seed] Generating embeddings for seeded jobs...")
+        try:
+            from app.services.embedding_service import embedding_service
+
+            # Process in batches of 100 to avoid memory issues
+            batch_size = 100
+            for i in range(0, len(job_objects), batch_size):
+                batch = job_objects[i:i + batch_size]
+                texts = [j.cleaned_description for j in batch if j.cleaned_description]
+
+                if texts:
+                    embeddings = embedding_service.encode_batch(texts, batch_size=len(texts))
+                    for j, emb in zip(batch, embeddings):
+                        j.embedding = emb.tolist()
+
+                # Commit batch
+                await db.flush()
+                logger.info(f"[Seed] Generated embeddings for batch {i//batch_size + 1}/{(len(job_objects) + batch_size - 1)//batch_size}")
+
+            await db.commit()
+            logger.info(f"[Seed] Generated embeddings for all {len(job_objects)} jobs.")
+        except Exception as e:
+            logger.error(f"[Seed] Failed to generate embeddings: {e}")
+
 
 # ── Lifespan ──────────────────────────────────────────────────────────────────
 @asynccontextmanager

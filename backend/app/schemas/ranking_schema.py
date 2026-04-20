@@ -58,12 +58,49 @@ class RankedJobsResponse(BaseModel):
 
 # ── CV Analysis response ─────────────────────────────────────────────────────
 
+class WorkExperienceResponse(BaseModel):
+    """A work experience entry extracted from CV."""
+    title:       str = ""
+    company:     str = ""
+    period:      str = ""
+    description: str = ""
+
+
+class EducationEntryResponse(BaseModel):
+    """An education entry extracted from CV."""
+    degree:  str = ""
+    school:  str = ""
+    period:  str = ""
+    details: str = ""
+
+
+class CareerDirectionResponse(BaseModel):
+    """A suggested career direction based on CV skills."""
+    title:            str = ""
+    match_score:      float = 0.0
+    description:      str = ""
+    matched_skills:   list[str] = Field(default_factory=list)
+    suggested_skills: list[str] = Field(default_factory=list)
+
+
 class CVProfileResponse(BaseModel):
-    """Structured CV profile extracted by AI."""
+    """Structured CV profile extracted by AI — detailed section breakdown."""
     skills:               list[str] = Field(default_factory=list)
+    skills_by_category:   dict[str, list[str]] = Field(default_factory=dict)
     education_level:      Optional[str] = None
+    education_entries:    list[EducationEntryResponse] = Field(default_factory=list)
     years_of_experience:  float = 0.0
+    work_experiences:     list[WorkExperienceResponse] = Field(default_factory=list)
     detected_level:       Optional[str] = None
+    summary:              str = ""
+    contact_email:        str = ""
+    contact_phone:        str = ""
+    linkedin:             str = ""
+    github:               str = ""
+    certifications:       list[str] = Field(default_factory=list)
+    languages:            list[str] = Field(default_factory=list)
+    sections_found:       list[str] = Field(default_factory=list)
+    career_directions:    list[CareerDirectionResponse] = Field(default_factory=list)
 
 
 class CVAnalysisResponse(BaseModel):

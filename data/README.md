@@ -1,25 +1,31 @@
-# Data Directory
+# Data
 
-Đặt file dataset tại đây với tên: `training_data.csv`
+Thư mục chứa dữ liệu seed cho hệ thống.
 
-## Định dạng file CSV bắt buộc
+## Nội dung
 
-File phải có **ít nhất 2 cột** sau:
+| File/Thư mục | Mô tả |
+|---|---|
+| `jobs_full_all.csv` | ~9000 tin tuyển dụng từ VietnamWorks (seed tự động khi khởi động) |
+| `pipeline/` | Scripts crawl và seed dữ liệu ban đầu |
 
-| Cột | Kiểu dữ liệu | Mô tả |
-|-----|-------------|-------|
-| `position_title` | string | Tên/chức danh vị trí công việc |
-| `job_description` | string | Mô tả chi tiết công việc, yêu cầu kỹ năng |
+## CSV Schema (`jobs_full_all.csv`)
 
-## Ví dụ
+Hệ thống backend tự động đọc file này khi khởi động lần đầu (nếu DB trống).
 
-```csv
-position_title,job_description
-Data Scientist,"We are looking for a Data Scientist with 3+ years experience in Python, ML..."
-Software Engineer,"Backend developer with Node.js and PostgreSQL experience..."
-```
+| Cột | Mô tả |
+|---|---|
+| `jobTitle` | Tên vị trí công việc |
+| `jobDescription` | Mô tả công việc |
+| `jobRequirement` | Yêu cầu công việc |
+| `companyName` | Tên công ty |
+| `jobUrl` | Link tin tuyển dụng |
+| `prettySalary` | Mức lương hiển thị |
+| `salaryMin` / `salaryMax` | Khoảng lương (số) |
+| `yearsOfExperience` | Số năm kinh nghiệm yêu cầu |
+| `jobLevel` | Cấp bậc (Fresher / Junior / Senior...) |
+| `skills` | Kỹ năng yêu cầu (dấu phẩy) |
 
-## Nguồn dataset gợi ý
+## Thêm dữ liệu mới
 
-- [Kaggle: Job Recommendation Dataset](https://www.kaggle.com/datasets)
-- [Kaggle: Indeed Job Postings](https://www.kaggle.com/datasets/promptcloud/jobs-on-naukricom)
+Để crawl thêm dữ liệu mới, xem hướng dẫn trong `pipeline/README.md`.

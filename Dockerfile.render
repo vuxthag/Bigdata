@@ -1,0 +1,32 @@
+# Dockerfile.render
+# Build from project root — bundles backend code + seed data CSV into one image.
+# Used for Render.com deployment (docker-compose uses backend/Dockerfile instead).
+
+FROM python:3.11-slim
+
+WORKDIR /app
+
+# System deps
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    gcc g++ libpq-dev libffi-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install Python dependencies
+COPY backend/requirements.txt .
+RUN pip install --no-cache-dir --upgrade pip && \
+    pip install --no-cache-dir -r requirements.txt
+
+# Copy application code
+COPY backend/ .
+
+# Copy seed data CSV
+COPY data/jobs_full_all.csv /app/data/jobs_full_all.csv
+
+# Make entrypoint executable
+RUN chmod +x entrypoint.sh
+
+# Pre-download SBERT model at build time (avoids cold start timeout)
+RUN python -c "from sentence_transformers import SentenceTransformer; SentenceTransformer('all-MiniLM-L6-v2')" || true
+
+EXPOSE 8000
+ENTRYPOINT ["./entrypoint.sh"]

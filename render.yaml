@@ -1,0 +1,52 @@
+databases:
+  - name: jobrec-db
+    databaseName: jobrec
+    user: jobrec
+    plan: free
+    region: singapore
+
+services:
+  # ── Backend ──────────────────────────────────────────────────────────────────
+  - type: web
+    name: jobrec-backend
+    region: singapore
+    plan: standard        # Cần ≥1GB RAM cho SBERT model; free tier (512MB) không đủ
+    runtime: docker
+    dockerfilePath: ./Dockerfile.render
+    dockerContext: .
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: jobrec-db
+          property: connectionString
+      - key: SECRET_KEY
+        generateValue: true
+      - key: SEED_DATA_PATH
+        value: /app/data/jobs_full_all.csv
+      - key: ACCESS_TOKEN_EXPIRE_MINUTES
+        value: "60"
+      - key: RETRAIN_THRESHOLD
+        value: "100"
+      - key: CRAWLER_INTERVAL_MINUTES
+        value: "30"
+      - key: CRAWLER_EMBED_ON_INSERT
+        value: "true"
+      - key: TELEGRAM_BOT_TOKEN
+        value: ""
+      - key: TELEGRAM_CHAT_ID
+        value: ""
+
+  # ── Frontend ─────────────────────────────────────────────────────────────────
+  # QUAN TRỌNG: Sau khi backend deploy xong, cập nhật VITE_API_URL
+  # thành https://<tên-backend>.onrender.com/api/v1
+  - type: web
+    name: jobrec-frontend
+    region: singapore
+    plan: free
+    runtime: node
+    rootDir: frontend
+    buildCommand: npm install && npm run build
+    startCommand: npx serve -s dist -l 3000
+    envVars:
+      - key: VITE_API_URL
+        value: https://jobrec-backend.onrender.com/api/v1  # ← Cập nhật URL thật
